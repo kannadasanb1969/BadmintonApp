@@ -1,9 +1,4 @@
-import axios from 'axios'
-import { getApiBaseUrl } from '@/config/env'
-
-const apiClient = axios.create({
-  baseURL: getApiBaseUrl(),
-})
+import apiClient from '@/api/apiClient'
 
 // Request interceptor for auth token (to be implemented in future phases)
 // apiClient.interceptors.request.use((config) => {

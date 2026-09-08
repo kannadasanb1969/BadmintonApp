@@ -1,0 +1,18 @@
+[
+  {
+    "id": "NOT-001",
+    "recipientId": "player-9100000000",
+    "recipientRole": "PLAYER",
+    "type": "FIXTURE_PUBLISHED",
+    "title": "Fixture published",
+    "message": "Your doubles fixture is ready.",
+    "isRead": false,
+    "createdAt": "2026-09-07T10:00:00.000Z",
+    "readAt": null,
+    "link": "/player/fixtures",
+    "tournamentId": "TRN-001",
+    "categoryId": "CAT-002",
+    "matchId": null,
+    "dedupeKey": "fixture-TRN-001"
+  }
+]

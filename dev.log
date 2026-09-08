@@ -281,3 +281,11 @@
 2:15:48 PM [vite] hmr update /src/pages/player/PlayerDashboard.tsx, /src/styles/globals.css
 2:15:48 PM [vite] hmr update /src/pages/player/PlayerDashboard.tsx, /src/styles/globals.css
 2:16:17 PM [vite] hmr update /src/styles/globals.css
+3:59:28 PM [vite] page reload index.html
+3:59:29 PM [vite] page reload index.html
+5:26:30 PM [vite] hmr update /src/styles/globals.css, /src/pages/organizer/OrganizerDashboard.tsx
+6:00:42 PM [vite] page reload package.json
+6:01:27 PM [vite] .env changed, restarting server...
+6:01:27 PM [vite] .env changed, restarting server...
+6:01:27 PM [vite] .env changed, restarting server...
+6:01:27 PM [vite] server restarted.
