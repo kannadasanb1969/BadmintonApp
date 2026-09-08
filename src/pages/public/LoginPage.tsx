@@ -1,11 +1,14 @@
 import LoginForm from '@/features/auth/components/LoginForm'
+import { useNavigate } from 'react-router-dom'
 
 const LoginPage = () => {
+  const navigate = useNavigate()
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 px-4 py-8 text-white sm:px-8 lg:flex lg:items-center lg:justify-center">
       <div className="court-line court-line-one" />
       <div className="court-line court-line-two" />
       <div className="court-net" />
+      <button type="button" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')} className="absolute left-4 top-4 z-20 grid h-11 w-11 place-items-center rounded-xl bg-white/10 text-3xl font-light text-white backdrop-blur transition hover:bg-white/20" aria-label="Go back">‹</button>
       <div className="relative z-10 mx-auto grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/15 bg-white/10 shadow-2xl shadow-black/40 backdrop-blur-sm lg:grid-cols-[1.05fr_.95fr]">
         <section className="relative flex min-h-[350px] flex-col justify-between overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 p-7 sm:p-10 lg:min-h-[640px]">
           <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full border-[28px] border-white/10" />

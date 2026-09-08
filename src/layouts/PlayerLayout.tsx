@@ -1,7 +1,7 @@
 import { Link, Outlet } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
-import { MobileAppHeader, MobileBottomNavigation } from '@/components/mobile/MobileAppShell'
+import { MobileAppHeader, MobileBottomNavigation, RolePageBack } from '@/components/mobile/MobileAppShell'
 
 const PlayerLayout = () => {
   const { user, logout } = useAuthStore()
@@ -20,7 +20,7 @@ const PlayerLayout = () => {
       <div><Link to="/player/dashboard" className="desktop-role-brand"><span>🏸</span> SmashPoint <small>Player</small></Link><nav>{navigation.map(item => <Link key={item.to} to={item.to}>{item.label}</Link>)}</nav></div>
       {user && <button type="button" onClick={logout}>Logout</button>}
     </div>
-    <main className="mobile-app-content"><Outlet /></main>
+    <main className="mobile-app-content"><RolePageBack homeTo="/player/dashboard" /><Outlet /></main>
     <MobileBottomNavigation items={navigation} />
   </div>
 }

@@ -14,5 +14,17 @@
     "categoryId": "CAT-002",
     "matchId": null,
     "dedupeKey": "fixture-TRN-001"
+  },
+  {
+    "recipientId": "player-9100000000",
+    "recipientRole": "PLAYER",
+    "type": "REGISTRATION_CONFIRMED",
+    "title": "Registration Confirmed",
+    "message": "You are registered for Chennai Smash Open - Men's Singles.",
+    "link": "/player/registrations",
+    "id": "u8qfw5qoj",
+    "createdAt": "2026-09-08T16:15:34.543Z",
+    "isRead": false,
+    "readAt": null
   }
 ]

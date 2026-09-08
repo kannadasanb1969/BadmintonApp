@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 export type AppIconName = 'home' | 'trophy' | 'clipboard' | 'bracket' | 'bell' | 'user' | 'menu' | 'plus'
@@ -19,9 +19,15 @@ export const AppIcon = ({ name, className = 'h-5 w-5' }: { name: AppIconName; cl
 
 export type MobileNavItem = { to: string; label: string; icon: AppIconName; match?: (pathname: string) => boolean }
 
-export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount }: { brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number }) => (
-  <header className="mobile-app-header">
+export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount }: { brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number }) => {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const rootPath = homeTo.replace(/\/dashboard$/, '')
+  const showBack = pathname !== homeTo && pathname !== rootPath
+  const goBack = () => window.history.length > 1 ? navigate(-1) : navigate(homeTo)
+  return <header className="mobile-app-header">
     <div className="mobile-app-header-inner">
+      {showBack && <button type="button" className="mobile-back-button" onClick={goBack} aria-label="Go back"><span aria-hidden="true">‹</span></button>}
       <Link to={homeTo} className="mobile-brand" aria-label={`${brand} home`}>
         <span className="mobile-brand-mark"><AppIcon name="trophy" className="h-5 w-5" /></span>
         <span><strong>{brand}</strong><small>{section}</small></span>
@@ -32,7 +38,15 @@ export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unrea
       </Link>
     </div>
   </header>
-)
+}
+
+export const RolePageBack = ({ homeTo }: { homeTo: string }) => {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const rootPath = homeTo.replace(/\/dashboard$/, '')
+  if (pathname === homeTo || pathname === rootPath) return null
+  return <button type="button" className="desktop-page-back" onClick={() => window.history.length > 1 ? navigate(-1) : navigate(homeTo)}>← Back</button>
+}
 
 export const MobileBottomNavigation = ({ items }: { items: MobileNavItem[] }) => {
   const { pathname } = useLocation()
