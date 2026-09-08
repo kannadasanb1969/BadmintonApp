@@ -1,7 +1,7 @@
 import { Link, Outlet } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
-import { MobileAppHeader, MobileBottomNavigation } from '@/components/mobile/MobileAppShell'
+import { MobileAppHeader, MobileBottomNavigation, RolePageBack } from '@/components/mobile/MobileAppShell'
 
 const AdminLayout = () => {
   const logout = useAuthStore(state => state.logout)
@@ -16,7 +16,7 @@ const AdminLayout = () => {
   return <div className="mobile-app-shell admin-shell">
     <MobileAppHeader brand="SmashPoint" section="Admin" homeTo="/admin/dashboard" notificationsTo="/admin/notifications" unreadCount={unreadCount} />
     <div className="desktop-role-bar"><div><Link to="/admin/dashboard" className="desktop-role-brand"><span>🏸</span> SmashPoint <small>Admin</small></Link><nav><Link to="/admin/tournaments">Tournament queue</Link><Link to="/admin/notifications">Notifications</Link></nav></div><button type="button" onClick={logout}>Logout</button></div>
-    <main className="mobile-app-content"><Outlet /></main>
+    <main className="mobile-app-content"><RolePageBack homeTo="/admin/dashboard" /><Outlet /></main>
     <MobileBottomNavigation items={navigation} />
   </div>
 }

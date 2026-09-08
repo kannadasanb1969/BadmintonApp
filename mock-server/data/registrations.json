@@ -1,1 +1,36 @@
-[{ "id": "REG-001", "registrationCode": "REG000001", "tournamentId": "TRN-001", "tournamentCode": "TRN-0001", "categoryId": "CAT-002", "categoryName": "Doubles", "playerId": "PLR-001", "playerCode": "PLR001", "playerName": "Arjun Kumar", "eventType": "DOUBLES", "status": "REGISTERED", "registeredAt": "2026-09-05T09:00:00.000Z", "teamId": "TEAM-001", "teamCode": "TEAM000001", "partnerId": "PLR-002", "partnerCode": "PLR002", "partnerName": "Vikram Raj", "partnerType": "FULL" }]
+[
+  {
+    "id": "REG-001",
+    "registrationCode": "REG000001",
+    "tournamentId": "TRN-001",
+    "tournamentCode": "TRN-0001",
+    "categoryId": "CAT-002",
+    "categoryName": "Doubles",
+    "playerId": "PLR-001",
+    "playerCode": "PLR001",
+    "playerName": "Arjun Kumar",
+    "eventType": "DOUBLES",
+    "status": "REGISTERED",
+    "registeredAt": "2026-09-05T09:00:00.000Z",
+    "teamId": "TEAM-001",
+    "teamCode": "TEAM000001",
+    "partnerId": "PLR-002",
+    "partnerCode": "PLR002",
+    "partnerName": "Vikram Raj",
+    "partnerType": "FULL"
+  },
+  {
+    "id": "kc4mylgel",
+    "registrationCode": "REG000002",
+    "tournamentId": "TRN-001",
+    "tournamentCode": "TRN-0001",
+    "categoryId": "CAT-001",
+    "categoryName": "Men's Singles",
+    "playerId": "PLR-001",
+    "playerCode": "PLR001",
+    "playerName": "Arjun Kumar",
+    "eventType": "SINGLES",
+    "status": "REGISTERED",
+    "registeredAt": "2026-09-08T16:15:34.536Z"
+  }
+]
