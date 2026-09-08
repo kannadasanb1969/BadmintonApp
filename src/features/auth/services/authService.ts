@@ -1,4 +1,5 @@
 import { User, Role } from '@/types/auth.types'
+import apiClient from '@/api/apiClient'
 
 /**
  * Mock login function
@@ -16,7 +17,6 @@ export const mockLogin = async (mobile: string, role: Role): Promise<User> => {
   // Generate a mock ID - deterministic based on role and mobile
   const id = `${role.toLowerCase()}-${mobile}`
 
-  // Mock user
   const user: User = {
     id,
     mobile,
@@ -24,5 +24,9 @@ export const mockLogin = async (mobile: string, role: Role): Promise<User> => {
     displayName: `${role} User`
   }
 
-  return user
+  try {
+    return (await apiClient.post<User>('/auth/login', { mobile, role })).data
+  } catch {
+    return user
+  }
 }

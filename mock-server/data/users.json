@@ -1,0 +1,5 @@
+[
+  { "id": "player-9100000000", "mobile": "9100000000", "role": "PLAYER", "displayName": "Arjun Kumar" },
+  { "id": "organizer-9876543210", "mobile": "9876543210", "role": "ORGANIZER", "displayName": "SmashPoint Organizer" },
+  { "id": "admin-9876543211", "mobile": "9876543211", "role": "ADMIN", "displayName": "SmashPoint Admin" }
+]
