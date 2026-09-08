@@ -396,6 +396,10 @@ export const useTournamentStore = create<TournamentStoreState>()(
     }),
     {
       name: 'badminton-tournaments', // Persistence key
+      // The local REST API is the persistent source. Starting from the
+      // in-store array prevents stale browser storage from replacing it with
+      // an incompatible response shape before API hydration completes.
+      skipHydration: true,
       version: 5,
       migrate: (persistedState, version) => {
         if (version < 5) {

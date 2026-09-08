@@ -11,7 +11,14 @@ import { useGuestPlayerStore } from '@/features/player/store/guestPlayerStore'
 
 type RecordWithId = { id: string }
 type StoreApi = { getState: () => any; setState: (state: any) => void; subscribe: (listener: (state: any, previous: any) => void) => () => void }
-const fetchCollection = async <T,>(collection: string) => (await apiClient.get<T[]>(`/${collection}`)).data
+const fetchCollection = async <T,>(collection: string): Promise<T[]> => {
+  const response = await apiClient.get<unknown>(`/${collection}`)
+  const data = response.data as { data?: unknown; [key: string]: unknown } | unknown[] | null
+  if (Array.isArray(data)) return data as T[]
+  if (Array.isArray(data?.data)) return data.data as T[]
+  if (data && typeof data === 'object' && Array.isArray(data[collection])) return data[collection] as T[]
+  return []
+}
 const equal = (one: unknown, two: unknown) => JSON.stringify(one) === JSON.stringify(two)
 
 const writeThrough = (store: StoreApi, key: string, collection: string) => store.subscribe((next, previous) => {

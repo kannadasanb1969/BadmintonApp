@@ -8,29 +8,18 @@ import { createDoublesFixtureDemo } from '@/features/tournaments/services/demoTo
 const OrganizerDashboard = () => {
   const user = useAuthStore(state => state.user)
   const tournaments = useTournamentStore(state => state.tournaments)
-  const tournamentData = tournaments as unknown as
-    | typeof tournaments
-    | { tournaments?: typeof tournaments }
-  const tournamentList = Array.isArray(tournamentData)
-    ? tournamentData
-    : Array.isArray(tournamentData?.tournaments)
-      ? tournamentData.tournaments
-      : []
   const navigate = useNavigate()
 
   // Get tournaments for the current organizer
   const organizerTournaments = useMemo(() => {
-    console.log('Organizer dashboard data:', tournaments)
-    console.log('Is array:', Array.isArray(tournaments))
-
     if (!user) {
       return []
     }
 
-    return tournamentList.filter(
+    return tournaments.filter(
       tournament => tournament.organizerId === user.id
     )
-  }, [tournaments, tournamentList, user])
+  }, [tournaments, user])
 
   // Calculate stats
   const totalTournaments = organizerTournaments.length
