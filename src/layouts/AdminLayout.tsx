@@ -14,7 +14,7 @@ const AdminLayout = () => {
     { to: '/admin/dashboard', label: 'Menu', icon: 'menu' as const, match: () => false },
   ]
   return <div className="mobile-app-shell admin-shell">
-    <MobileAppHeader brand="SmashPoint" section="Admin" homeTo="/admin/dashboard" notificationsTo="/admin/notifications" unreadCount={unreadCount} />
+    <MobileAppHeader brand="SmashPoint" section="Admin" homeTo="/admin/dashboard" notificationsTo="/admin/notifications" unreadCount={unreadCount} onLogout={logout} />
     <div className="desktop-role-bar"><div><Link to="/admin/dashboard" className="desktop-role-brand"><span>🏸</span> SmashPoint <small>Admin</small></Link><nav><Link to="/admin/tournaments">Tournament queue</Link><Link to="/admin/notifications">Notifications</Link></nav></div><button type="button" onClick={logout}>Logout</button></div>
     <main className="mobile-app-content"><RolePageBack homeTo="/admin/dashboard" /><Outlet /></main>
     <MobileBottomNavigation items={navigation} />
