@@ -56,7 +56,7 @@ const LoginForm = () => {
     event.preventDefault()
     setError(null)
     if (!validateIdentity() || !role) return
-    if (!/^\d{6}$/.test(otp)) return setError('Enter the six-digit OTP.')
+    if (!/^\d{5}$/.test(otp)) return setError('Enter the five-digit OTP.')
     setLoading(true)
     try {
       const auth = await verifyOtpLogin(mobile, otp, role)
@@ -98,8 +98,8 @@ const LoginForm = () => {
           </div>
         </div>
         {otpRequested && <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-          <label htmlFor="otp" className="mb-2 block text-sm font-bold text-emerald-900">Enter six-digit OTP</label>
-          <input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="w-full rounded-lg border border-emerald-200 bg-white px-4 py-3 text-center text-xl font-bold tracking-[0.35em] text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" placeholder="••••••" />
+          <label htmlFor="otp" className="mb-2 block text-sm font-bold text-emerald-900">Enter five-digit OTP</label>
+          <input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} className="w-full rounded-lg border border-emerald-200 bg-white px-4 py-3 text-center text-xl font-bold tracking-[0.35em] text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" placeholder="•••••" />
           {developmentHint && <p className="mt-2 text-xs font-semibold text-emerald-700">{developmentHint}</p>}
         </div>}
         {!otpRequested ? <button type="button" onClick={handleRequestOtp} disabled={loading} className="w-full rounded-xl bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-emerald-600 disabled:translate-y-0 disabled:opacity-60">{loading ? 'Requesting OTP...' : 'Request OTP  →'}</button> : <div className="space-y-3"><button type="submit" disabled={loading} className="w-full rounded-xl bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-emerald-600 disabled:translate-y-0 disabled:opacity-60">{loading ? 'Verifying OTP...' : 'Verify & enter the court  →'}</button><button type="button" onClick={handleRequestOtp} disabled={loading} className="w-full text-sm font-bold text-emerald-700 hover:text-emerald-800 disabled:opacity-60">Resend OTP</button></div>}
