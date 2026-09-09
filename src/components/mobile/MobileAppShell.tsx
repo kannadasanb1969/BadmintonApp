@@ -19,7 +19,7 @@ export const AppIcon = ({ name, className = 'h-5 w-5' }: { name: AppIconName; cl
 
 export type MobileNavItem = { to: string; label: string; icon: AppIconName; match?: (pathname: string) => boolean }
 
-export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount }: { brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number }) => {
+export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount, onLogout }: { brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number; onLogout: () => void }) => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const rootPath = homeTo.replace(/\/dashboard$/, '')
@@ -32,10 +32,13 @@ export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unrea
         <span className="mobile-brand-mark"><AppIcon name="trophy" className="h-5 w-5" /></span>
         <span><strong>{brand}</strong><small>{section}</small></span>
       </Link>
-      <Link to={notificationsTo} className="mobile-notification-button" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}>
-        <AppIcon name="bell" />
-        {unreadCount > 0 && <span>{unreadCount > 9 ? '9+' : unreadCount}</span>}
-      </Link>
+      <div className="mobile-header-actions">
+        <button type="button" className="mobile-logout-button" onClick={onLogout}>Logout</button>
+        <Link to={notificationsTo} className="mobile-notification-button" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}>
+          <AppIcon name="bell" />
+          {unreadCount > 0 && <span>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+        </Link>
+      </div>
     </div>
   </header>
 }
