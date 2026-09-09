@@ -15,6 +15,7 @@ import { Registration } from '@/features/registrations/types/registration.types'
 import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
+import { isExplicitMockApiMode } from '@/api/apiClient'
 
 const MatchScoringPage = () => {
   const { tournamentId, categoryId, matchId } = useParams<{ tournamentId: string; categoryId: string; matchId: string }>()
@@ -55,11 +56,11 @@ const MatchScoringPage = () => {
         }
 
         // Load fixture for this tournament and category
-        const fixtureStore = useFixtureStore.getState()
-        const existingFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
+        const fixtures = await fixtureService.getFixtures()
+        const existingFixture = fixtures.find((item) => item.tournamentId === tournamentId && item.categoryId === categoryId)
         if (existingFixture) {
           setFixture(existingFixture)
-          const existingMatch = existingFixture.matches.find(m => m.id === matchId)
+          const existingMatch = await matchService.getMatch(matchId)
           if (existingMatch) {
             setMatch(existingMatch)
           }
@@ -116,12 +117,12 @@ const MatchScoringPage = () => {
   }
 
   // Check if current user is the organizer
-  const isOrganizer = currentUser?.id === tournament.organizerId && currentUser?.role === 'ORGANIZER'
+  const isOrganizer = currentUser?.role === 'ADMIN' || (currentUser?.id === tournament.organizerId && currentUser?.role === 'ORGANIZER')
 
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'SCHEDULED' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -132,7 +133,7 @@ const MatchScoringPage = () => {
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'LIVE' &&
       isOrganizer
     )
@@ -141,7 +142,8 @@ const MatchScoringPage = () => {
   // Helper function to check if score can be undone
   const canUndoScore = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      isExplicitMockApiMode &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'LIVE' &&
       match.scoreHistory &&
       match.scoreHistory.length > 0 &&
@@ -152,7 +154,7 @@ const MatchScoringPage = () => {
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'LIVE' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -162,6 +164,7 @@ const MatchScoringPage = () => {
   }
   const winningPoints = match.winningPoints ?? 21
   const handleWinningPointsChange = (points: 15 | 21 | 30) => {
+    if (!isExplicitMockApiMode) return
     const updated = useFixtureStore.getState().setMatchWinningPoints(fixture.id, match.id, points)
     if (updated) setMatch(updated)
   }
@@ -358,7 +361,7 @@ const MatchScoringPage = () => {
       </div>
 
       <div className="space-y-4">
-        <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="flex items-start gap-3"><span className="text-3xl">🎯</span><div><h3 className="text-lg font-black text-slate-900">Total Points (Winning Points)</h3><p className="text-sm text-slate-500">First team to reach the selected score wins.</p></div></div><div className="mt-4 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" disabled={match.status === 'COMPLETED'} onClick={() => handleWinningPointsChange(points)} className={`rounded-xl px-3 py-3 text-sm font-black transition ${winningPoints === points ? 'bg-blue-600 text-white shadow-lg' : 'border border-slate-200 bg-white text-slate-700 hover:border-blue-400'}`}>{winningPoints === points ? '✓ ' : ''}{points} Points</button>)}</div><p className="mt-3 text-center text-sm text-blue-700">First to reach <strong>{winningPoints}</strong> points wins this match.</p></section>
+        {isExplicitMockApiMode && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="flex items-start gap-3"><span className="text-3xl">🎯</span><div><h3 className="text-lg font-black text-slate-900">Total Points (Winning Points)</h3><p className="text-sm text-slate-500">First team to reach the selected score wins.</p></div></div><div className="mt-4 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" disabled={match.status === 'COMPLETED'} onClick={() => handleWinningPointsChange(points)} className={`rounded-xl px-3 py-3 text-sm font-black transition ${winningPoints === points ? 'bg-blue-600 text-white shadow-lg' : 'border border-slate-200 bg-white text-slate-700 hover:border-blue-400'}`}>{winningPoints === points ? '✓ ' : ''}{points} Points</button>)}</div><p className="mt-3 text-center text-sm text-blue-700">First to reach <strong>{winningPoints}</strong> points wins this match.</p></section>}
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-start">
             <span className="font-medium text-gray-700">Participant 1:</span>
@@ -423,7 +426,7 @@ const MatchScoringPage = () => {
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_1', 1)}
                         className="w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        disabled={match.participant1Score >= winningPoints}
+                        disabled={isExplicitMockApiMode && match.participant1Score >= winningPoints}
                         title="Increase score"
                         aria-label="Increase participant 1 score"
                       >
@@ -495,7 +498,7 @@ const MatchScoringPage = () => {
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_2', 1)}
                         className="w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        disabled={match.participant2Score >= winningPoints}
+                        disabled={isExplicitMockApiMode && match.participant2Score >= winningPoints}
                         title="Increase score"
                         aria-label="Increase participant 2 score"
                       >

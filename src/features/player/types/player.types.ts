@@ -6,7 +6,7 @@ export type PlayerGender = 'MALE' | 'FEMALE' | 'OTHER'
 export interface PlayerProfile {
   id: string // database/internal ID
   playerCode: string // e.g., PLR000001
-  userId: string // references auth user ID
+  userId: string | null // references auth user ID when linked
   fullName: string
   gender?: PlayerGender
   dob: string // YYYY-MM-DD

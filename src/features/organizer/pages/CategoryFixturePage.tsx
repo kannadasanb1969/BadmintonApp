@@ -15,6 +15,7 @@ import { Registration } from '@/features/registrations/types/registration.types'
 import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
+import { isExplicitMockApiMode } from '@/api/apiClient'
 
 const CategoryFixturePage = () => {
   const { tournamentId, categoryId } = useParams<{ tournamentId: string; categoryId: string }>()
@@ -60,8 +61,8 @@ const CategoryFixturePage = () => {
         }
 
         // Load fixture for this tournament and category
-        const fixtureStore = useFixtureStore.getState()
-        const existingFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
+        const fixtures = await fixtureService.getFixtures()
+        const existingFixture = fixtures.find((item) => item.tournamentId === tournamentId && item.categoryId === categoryId)
         if (existingFixture) {
           setFixture(existingFixture)
         }
@@ -97,7 +98,7 @@ const CategoryFixturePage = () => {
   }
 
   // Check if current user is the organizer
-  const isOrganizer = currentUser?.id === tournament.organizerId && currentUser?.role === 'ORGANIZER'
+  const isOrganizer = currentUser?.role === 'ADMIN' || (currentUser?.id === tournament.organizerId && currentUser?.role === 'ORGANIZER')
   const finalMatch = fixture?.matches
     .filter(match => match.roundNumber === Math.max(...(fixture?.matches.map(item => item.roundNumber) ?? [0])))
     .find(match => match.status === 'COMPLETED' && match.winnerId)
@@ -187,6 +188,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleSetWinningPoints = (matchId: string, points: 15 | 21 | 30) => {
+    if (!isExplicitMockApiMode) return
     if (!fixture) return
     const updatedMatch = useFixtureStore.getState().setMatchWinningPoints(fixture.id, matchId, points)
     if (!updatedMatch) return
@@ -279,7 +281,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'SCHEDULED' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -290,7 +292,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'LIVE' &&
       isOrganizer
     )
@@ -299,7 +301,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if score can be undone
   const canUndoScore = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      isExplicitMockApiMode && fixture?.status === 'PUBLISHED' &&
       match.status === 'LIVE' &&
       match.scoreHistory &&
       match.scoreHistory.length > 0 &&
@@ -310,7 +312,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
     return (
-      fixture?.status === 'PUBLISHED' &&
+      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'LIVE' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -371,9 +373,7 @@ const CategoryFixturePage = () => {
                 {canStartMatch(match) && !match.participant1Score && !match.participant2Score ? (
                   // Show start match button if scores are 0-0 and match is scheduled
                   <div className="match-start-panel mt-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p>
-                    <div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${(match.winningPoints ?? 21) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{(match.winningPoints ?? 21) === points ? '✓ ' : ''}{points}</button>)}</div>
-                    <p className="mt-2 text-xs text-blue-700">First to {match.winningPoints ?? 21} points wins.</p>
+                    {isExplicitMockApiMode && <><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p><div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${(match.winningPoints ?? 21) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{(match.winningPoints ?? 21) === points ? '✓ ' : ''}{points}</button>)}</div><p className="mt-2 text-xs text-blue-700">First to {match.winningPoints ?? 21} points wins.</p></>}
                     <div className="mt-3 flex justify-end">
                     {isStartingMatch === match.id ? (
                       <button
@@ -395,7 +395,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P1 Score:</span>
                     <div className="flex items-center space-x-2">
-                      {canScoreMatch(match) && !isScoring ? (
+                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', -1)}
@@ -415,12 +415,12 @@ const CategoryFixturePage = () => {
                       <span className="text-sm font-mono">
                         {match.participant1Score}
                       </span>
-                      {canScoreMatch(match) && !isScoring ? (
+                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={match.participant1Score >= (match.winningPoints ?? 21)}
+                            disabled={isExplicitMockApiMode && match.participant1Score >= (match.winningPoints ?? 21)}
                             title="Increase score"
                             aria-label="Increase participant 1 score"
                           >
@@ -465,7 +465,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P2 Score:</span>
                     <div className="flex items-center space-x-2">
-                      {canScoreMatch(match) && !isScoring ? (
+                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', -1)}
@@ -485,12 +485,12 @@ const CategoryFixturePage = () => {
                       <span className="text-sm font-mono">
                         {match.participant2Score}
                       </span>
-                      {canScoreMatch(match) && !isScoring ? (
+                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={match.participant2Score >= (match.winningPoints ?? 21)}
+                            disabled={isExplicitMockApiMode && match.participant2Score >= (match.winningPoints ?? 21)}
                             title="Increase score"
                             aria-label="Increase participant 2 score"
                           >

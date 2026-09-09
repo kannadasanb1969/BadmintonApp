@@ -11,6 +11,8 @@ const generateRegistrationCode = (registrations: Registration[]): string => {
 
 interface RegistrationStoreState {
   registrations: Registration[];
+  replaceRegistrations: (registrations: Registration[]) => void;
+  upsertRegistration: (registration: Registration) => void;
   createRegistration: (registration: Omit<Registration, 'id' | 'registrationCode'>) => Registration;
   getPlayerRegistrations: (playerId: string) => Registration[];
   getTournamentRegistrations: (tournamentId: string) => Registration[];
@@ -22,6 +24,8 @@ export const useRegistrationStore = create<RegistrationStoreState>()(
   persist(
     (set, get) => ({
       registrations: [],
+      replaceRegistrations: (registrations) => set({ registrations: Array.isArray(registrations) ? registrations : [] }),
+      upsertRegistration: (registration) => set(state => ({ registrations: [...state.registrations.filter(item => item.id !== registration.id), registration] })),
 
       createRegistration: (registration) => {
         const newRegistration: Registration = {
@@ -68,7 +72,7 @@ export const useRegistrationStore = create<RegistrationStoreState>()(
       }
     }),
     {
-      name: 'badminton-registrations', // Persistence key
+      name: 'badminton-registrations', partialize: () => ({}), skipHydration: true
     }
   )
 );

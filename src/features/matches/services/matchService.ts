@@ -7,10 +7,16 @@ import { useMedalHistoryStore } from '@/features/medals/store/medalHistoryStore'
 import { usePlayerDirectoryStore } from '@/features/player/store/playerDirectoryStore';
 import { useTeamStore } from '@/features/teams/store/teamStore';
 import { notificationService } from '@/features/notifications/services/notificationService';
+import apiClient, { isExplicitMockApiMode } from '@/api/apiClient';
+import { fixtureService } from '@/features/fixtures/services/fixtureService';
 
 
 export interface MatchService {
+  getMatches: () => Promise<FixtureMatch[]>;
   getMatch: (matchId: string) => Promise<FixtureMatch | undefined>;
+  getMatchesByFixture: (fixtureId: string) => Promise<FixtureMatch[]>;
+  getMatchesByTournament: (tournamentId: string) => Promise<FixtureMatch[]>;
+  getScoreHistory: (matchId: string) => Promise<ScoreSnapshot[]>;
   startMatch: (
     organizerId: string,
     tournamentId: string,
@@ -43,11 +49,57 @@ export interface MatchService {
   ) => Promise<void>;
 }
 
+type WorkerMatch = Omit<FixtureMatch, 'participant1' | 'participant2' | 'nextMatchSlot'> & {
+  participant1Id: string | null;
+  participant2Id: string | null;
+  nextMatchSlot: FixtureMatch['nextMatchSlot'] | null;
+};
+
+const workerMatch = (raw: WorkerMatch): FixtureMatch => {
+  const fixture = useFixtureStore.getState().fixtures.find((item) => item.id === raw.fixtureId);
+  const existing = fixture?.matches.find((item) => item.id === raw.id);
+  const findParticipant = (id: string | null) => id ? fixture?.participants.find((item) => item.id === id) ?? null : null;
+  return { ...existing, ...raw, participant1: findParticipant(raw.participant1Id) ?? existing?.participant1 ?? null, participant2: findParticipant(raw.participant2Id) ?? existing?.participant2 ?? null } as FixtureMatch;
+};
+
+const syncWorkerMatch = async (raw: WorkerMatch): Promise<FixtureMatch> => {
+  const fixture = await fixtureService.getFixture(raw.fixtureId);
+  return fixture?.matches.find((item) => item.id === raw.id) ?? workerMatch(raw);
+};
+
 export const matchService: MatchService = {
+  async getMatches(): Promise<FixtureMatch[]> {
+    if (isExplicitMockApiMode) return useFixtureStore.getState().fixtures.flatMap((fixture) => fixture.matches);
+    const data = (await apiClient.get<WorkerMatch[]>('/api/matches')).data;
+    return (Array.isArray(data) ? data : []).map(workerMatch);
+  },
+
+  async getMatchesByFixture(fixtureId: string): Promise<FixtureMatch[]> {
+    if (isExplicitMockApiMode) return useFixtureStore.getState().getFixtureById(fixtureId)?.matches ?? [];
+    await fixtureService.getFixture(fixtureId);
+    const data = (await apiClient.get<WorkerMatch[]>(`/api/matches/fixture/${fixtureId}`)).data;
+    return (Array.isArray(data) ? data : []).map(workerMatch);
+  },
+
+  async getMatchesByTournament(tournamentId: string): Promise<FixtureMatch[]> {
+    if (isExplicitMockApiMode) return useFixtureStore.getState().fixtures.filter((fixture) => fixture.tournamentId === tournamentId).flatMap((fixture) => fixture.matches);
+    const data = (await apiClient.get<WorkerMatch[]>(`/api/matches/tournament/${tournamentId}`)).data;
+    return (Array.isArray(data) ? data : []).map(workerMatch);
+  },
+
+  async getScoreHistory(matchId: string): Promise<ScoreSnapshot[]> {
+    if (isExplicitMockApiMode) return (await matchService.getMatch(matchId))?.scoreHistory ?? [];
+    const data = (await apiClient.get<Array<{ participant1Score: number; participant2Score: number }>>(`/api/matches/${matchId}/score-history`)).data;
+    return (Array.isArray(data) ? data : []).map((entry) => ({ participant1Score: entry.participant1Score, participant2Score: entry.participant2Score }));
+  },
   /**
    * Get a match by ID
    */
   getMatch: async (matchId: string): Promise<FixtureMatch | undefined> => {
+    if (!isExplicitMockApiMode) {
+      const data = (await apiClient.get<WorkerMatch>(`/api/matches/${matchId}`)).data;
+      return syncWorkerMatch(data);
+    }
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -75,6 +127,10 @@ export const matchService: MatchService = {
     categoryId: string,
     matchId: string
   ): Promise<FixtureMatch | undefined> => {
+    if (!isExplicitMockApiMode) {
+      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/start`, { requestedByUserId: organizerId })).data;
+      return syncWorkerMatch(data);
+    }
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -136,6 +192,14 @@ export const matchService: MatchService = {
     side: 'PARTICIPANT_1' | 'PARTICIPANT_2',
     delta: 1 | -1
   ): Promise<FixtureMatch | undefined> => {
+    if (!isExplicitMockApiMode) {
+      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/score`, {
+        side: side === 'PARTICIPANT_1' ? 'A' : 'B',
+        action: delta === 1 ? 'INCREMENT' : 'DECREMENT',
+        requestedByUserId: organizerId,
+      })).data;
+      return syncWorkerMatch(data);
+    }
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -191,6 +255,9 @@ export const matchService: MatchService = {
     categoryId: string,
     matchId: string
   ): Promise<FixtureMatch | undefined> => {
+    if (!isExplicitMockApiMode) {
+      throw new Error('Undo is not a Worker match operation. Use the matching decrement control instead.');
+    }
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -246,6 +313,10 @@ export const matchService: MatchService = {
     categoryId: string,
     matchId: string
   ): Promise<FixtureMatch | undefined> => {
+    if (!isExplicitMockApiMode) {
+      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/complete`, { requestedByUserId: organizerId })).data;
+      return syncWorkerMatch(data);
+    }
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 

@@ -1,4 +1,4 @@
-import apiClient from '@/api/apiClient'
+import apiClient, { isExplicitMockApiMode } from '@/api/apiClient'
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useTeamStore } from '@/features/teams/store/teamStore'
@@ -11,7 +11,14 @@ import { useGuestPlayerStore } from '@/features/player/store/guestPlayerStore'
 
 type RecordWithId = { id: string }
 type StoreApi = { getState: () => any; setState: (state: any) => void; subscribe: (listener: (state: any, previous: any) => void) => () => void }
-const fetchCollection = async <T,>(collection: string) => (await apiClient.get<T[]>(`/${collection}`)).data
+const fetchCollection = async <T,>(collection: string): Promise<T[]> => {
+  const response = await apiClient.get<unknown>(`/${collection}`)
+  const data = response.data as { data?: unknown; [key: string]: unknown } | unknown[] | null
+  if (Array.isArray(data)) return data as T[]
+  if (Array.isArray(data?.data)) return data.data as T[]
+  if (data && typeof data === 'object' && Array.isArray(data[collection])) return data[collection] as T[]
+  return []
+}
 const equal = (one: unknown, two: unknown) => JSON.stringify(one) === JSON.stringify(two)
 
 const writeThrough = (store: StoreApi, key: string, collection: string) => store.subscribe((next, previous) => {
@@ -25,6 +32,9 @@ const writeThrough = (store: StoreApi, key: string, collection: string) => store
 
 let started = false
 export const hydrateAndSyncDomainData = async () => {
+  // The generic collection CRUD below belongs only to the local JSON mock API.
+  // Real Worker endpoints are domain-specific and will be integrated in later phases.
+  if (!isExplicitMockApiMode) return
   if (started) return
   const sources: Array<[StoreApi, string, string]> = [
     [useTournamentStore, 'tournaments', 'tournaments'], [useRegistrationStore, 'registrations', 'registrations'], [useTeamStore, 'teams', 'teams'], [useFixtureStore, 'fixtures', 'fixtures'], [useResultStore, 'results', 'results'], [useMedalHistoryStore, 'medalHistory', 'medals'], [useNotificationStore, 'notifications', 'notifications'], [usePlayerDirectoryStore, 'profiles', 'players'], [useGuestPlayerStore, 'guests', 'guest-players'],

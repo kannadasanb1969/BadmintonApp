@@ -41,25 +41,22 @@ export const useTournamentStore = create<TournamentStoreState>()(
       loading: false,
       error: null,
 
-      fetchTournaments: () => {
+      fetchTournaments: async () => {
         set({ loading: true, error: null });
-        // Simulate API delay
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            // In a real app, we would fetch from an API here
-            // For now, we just use the persisted data
-            set({ loading: false });
-            resolve();
-          }, 500);
-        });
+        try {
+          const { tournamentService } = await import('@/features/tournaments/services/tournamentService');
+          await tournamentService.getTournaments();
+          set({ loading: false });
+        } catch (err) {
+          set({ loading: false, error: err instanceof Error ? err.message : 'An error occurred' });
+        }
       },
 
       fetchTournamentById: async (id: string) => {
         set({ loading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const tournament = get().tournaments.find(t => t.id === id);
+          const { tournamentService } = await import('@/features/tournaments/services/tournamentService');
+          const tournament = await tournamentService.getTournamentById(id);
           set({
             tournament: tournament ? { ...tournament } : null,
             loading: false
@@ -396,6 +393,11 @@ export const useTournamentStore = create<TournamentStoreState>()(
     }),
     {
       name: 'badminton-tournaments', // Persistence key
+      // The local REST API is the persistent source. Starting from the
+      // in-store array prevents stale browser storage from replacing it with
+      // an incompatible response shape before API hydration completes.
+      skipHydration: true,
+      partialize: () => ({}),
       version: 5,
       migrate: (persistedState, version) => {
         if (version < 5) {

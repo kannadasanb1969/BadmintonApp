@@ -7,11 +7,14 @@ import { useTeamStore } from '@/features/teams/store/teamStore';
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore';
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore';
 import { notificationService } from '@/features/notifications/services/notificationService';
+import apiClient, { isExplicitMockApiMode } from '@/api/apiClient';
+import { tournamentService } from '@/features/tournaments/services/tournamentService';
 
 // Mock delay function to simulate API calls
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 interface FixtureService {
+  getFixtures: () => Promise<Fixture[]>;
   getEligibleParticipants: (tournamentId: string, categoryId: string) => Promise<FixtureParticipant[]>;
   canGenerateFixture: (organizerId: string, tournamentId: string, categoryId: string) => Promise<void>;
   generateFixture: (organizerId: string, tournamentId: string, categoryId: string, format: TournamentFormat) => Promise<Fixture>;
@@ -23,13 +26,44 @@ interface FixtureService {
   getFixture: (fixtureId: string) => Promise<Fixture | undefined>;
 }
 
+type WorkerParticipant = { participantId: string; participantType: 'PLAYER' | 'TEAM'; displayName?: string; displayCode?: string };
+type WorkerMatch = Omit<FixtureMatch, 'participant1' | 'participant2' | 'nextMatchSlot'> & { participant1Id: string | null; participant1Type?: string | null; participant2Id: string | null; participant2Type?: string | null; nextMatchSlot: FixtureMatch['nextMatchSlot'] | null };
+type WorkerFixture = Omit<Fixture, 'tournamentCode' | 'categoryName' | 'format' | 'participants' | 'matches'> & { format: string; participants?: WorkerParticipant[]; matches?: WorkerMatch[] };
+
+const fromWorkerFixture = async (raw: WorkerFixture): Promise<Fixture> => {
+  const tournament = await tournamentService.getTournamentById(raw.tournamentId);
+  const category = tournament?.categories.find((item) => item.id === raw.categoryId);
+  const participants = (Array.isArray(raw.participants) ? raw.participants : []).map((item) => ({ id: item.participantId, name: item.displayName ?? item.participantId, code: item.displayCode ?? item.participantId, type: item.participantType }));
+  const participant = new Map(participants.map((item) => [item.id, item]));
+  return {
+    ...raw,
+    tournamentCode: tournament?.tournamentCode ?? raw.tournamentId,
+    categoryName: category?.eventType ?? raw.categoryId,
+    format: raw.format === 'ROUND_ROBIN' ? 'LEAGUE' : raw.format === 'LEAGUE' ? 'LEAGUE' : 'KNOCKOUT',
+    participants,
+    matches: (Array.isArray(raw.matches) ? raw.matches : []).map((match) => ({ ...match, participant1: match.participant1Id ? participant.get(match.participant1Id) ?? null : null, participant2: match.participant2Id ? participant.get(match.participant2Id) ?? null : null })),
+  } as Fixture;
+};
+
+const cacheFixture = (fixture: Fixture) => useFixtureStore.getState().saveGeneratedFixture(fixture);
+
 export const fixtureService: FixtureService = {
+  async getFixtures(): Promise<Fixture[]> {
+    if (isExplicitMockApiMode) return useFixtureStore.getState().fixtures;
+    const data = (await apiClient.get<WorkerFixture[]>('/api/fixtures')).data;
+    const fixtures = await Promise.all((Array.isArray(data) ? data : []).map(fromWorkerFixture));
+    fixtures.forEach(cacheFixture);
+    return fixtures;
+  },
   /**
    * Get eligible participants for a category based on registration status.
    * For SINGLES: active registrations (status === 'REGISTERED')
    * For DOUBLES: confirmed teams (status === 'CONFIRMED')
    */
   getEligibleParticipants(tournamentId: string, categoryId: string): Promise<FixtureParticipant[]> {
+    if (!isExplicitMockApiMode) {
+      return this.getFixtures().then((fixtures) => fixtures.find((fixture) => fixture.tournamentId === tournamentId && fixture.categoryId === categoryId)?.participants ?? []);
+    }
     return new Promise(async (resolve) => {
       await delay(500);
 
@@ -99,6 +133,10 @@ export const fixtureService: FixtureService = {
    * Throws error if not allowed.
    */
   canGenerateFixture(organizerId: string, tournamentId: string, categoryId: string): Promise<void> {
+    if (!isExplicitMockApiMode) {
+      // The Worker owns registration-phase, ownership, and participant validation.
+      return Promise.resolve();
+    }
     return new Promise(async (resolve, reject) => {
       try {
         await delay(500);
@@ -162,6 +200,18 @@ export const fixtureService: FixtureService = {
    * We return the fixture object to be stored.
    */
   generateFixture(organizerId: string, tournamentId: string, categoryId: string, format: TournamentFormat): Promise<Fixture> {
+    if (!isExplicitMockApiMode) {
+      return apiClient.post<WorkerFixture>('/api/fixtures/generate', {
+        tournamentId,
+        categoryId,
+        organizerUserId: organizerId,
+        format: format === 'LEAGUE_KNOCKOUT' ? 'LEAGUE' : format,
+      }).then(async (response) => {
+        const fixture = await fromWorkerFixture(response.data);
+        cacheFixture(fixture);
+        return fixture;
+      });
+    }
     return new Promise(async (resolve, reject) => {
       try {
         await delay(500);
@@ -532,6 +582,7 @@ export const fixtureService: FixtureService = {
    * Instead, it directly calls the appropriate pure generator.
    */
   reshuffleFixture(organizerId: string, fixtureId: string): Promise<Fixture> {
+    if (!isExplicitMockApiMode) return Promise.reject(new Error('Fixture re-shuffle is not available from the Worker API yet.'));
     return new Promise(async (resolve, reject) => {
       try {
         await delay(500);
@@ -616,6 +667,7 @@ export const fixtureService: FixtureService = {
    * Only works on DRAFT fixtures.
    */
   publishFixture(organizerId: string, fixtureId: string): Promise<Fixture> {
+    if (!isExplicitMockApiMode) return Promise.reject(new Error('Fixture publishing is not available from the Worker API yet.'));
     return new Promise(async (resolve, reject) => {
       try {
         await delay(500);
@@ -669,6 +721,13 @@ export const fixtureService: FixtureService = {
    * Get a fixture by id.
    */
   getFixture(fixtureId: string): Promise<Fixture | undefined> {
+    if (!isExplicitMockApiMode) {
+      return apiClient.get<WorkerFixture>(`/api/fixtures/${fixtureId}`).then(async (response) => {
+        const fixture = await fromWorkerFixture(response.data);
+        cacheFixture(fixture);
+        return fixture;
+      });
+    }
     return new Promise(async (resolve) => {
       await delay(500);
       resolve(useFixtureStore.getState().getFixtureById(fixtureId));
