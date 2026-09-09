@@ -4,6 +4,7 @@ import { MedalHistory } from '@/features/medals/types/medalHistory.types';
 
 interface MedalHistoryStoreState {
   medalHistory: MedalHistory[];
+  replaceMedalHistory: (medals: MedalHistory[]) => void;
   addMedalHistory: (medalHistory: Omit<MedalHistory, 'id'>) => MedalHistory;
   getPlayerMedalHistory: (playerId: string) => MedalHistory[];
   getTournamentMedalHistory: (tournamentId: string) => MedalHistory[];
@@ -13,6 +14,7 @@ export const useMedalHistoryStore = create<MedalHistoryStoreState>()(
   persist(
     (set, get) => ({
       medalHistory: [],
+      replaceMedalHistory: (medals) => set({ medalHistory: Array.isArray(medals) ? medals : [] }),
 
       addMedalHistory: (medalHistory: Omit<MedalHistory, 'id'>): MedalHistory => {
         // Check if medal history already exists for this player/tournament/category/position
@@ -57,7 +59,7 @@ export const useMedalHistoryStore = create<MedalHistoryStoreState>()(
       }
     }),
     {
-      name: 'badminton-medal-history' // Persistence key
+      name: 'badminton-medal-history', partialize: () => ({}), skipHydration: true
     }
   )
 );

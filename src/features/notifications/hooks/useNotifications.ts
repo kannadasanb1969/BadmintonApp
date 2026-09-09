@@ -1,16 +1,20 @@
 import { useNotificationStore } from '@/features/notifications/services/notificationStore'
 import { useAuthStore } from '@/store/authStore'
 import { AppNotification } from '@/features/notifications/types/notification.types'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { notificationApiService } from '@/features/notifications/services/notificationApiService'
+import { isExplicitMockApiMode } from '@/api/apiClient'
 
 export const useNotifications = () => {
   // Use Zustand selectors for reactivity - get stable references
   const user = useAuthStore(state => state.user)
   const notifications = useNotificationStore(state => state.notifications)
-  const markAsRead = useNotificationStore(state => state.markAsRead)
-  const markAllAsRead = useNotificationStore(state => state.markAllAsRead)
+  const backendUnreadCount = useNotificationStore(state => state.unreadCount)
   const clearRecipientNotifications = useNotificationStore(state => state.clearRecipientNotifications)
-  const getUnreadCount = useNotificationStore(state => state.getUnreadCount)
+
+  useEffect(() => {
+    if (user) void notificationApiService.refresh(user.id)
+  }, [user?.id])
 
   // Derive user-specific notifications outside of Zustand selector
   const userNotifications = useMemo(() => {
@@ -32,19 +36,13 @@ export const useNotifications = () => {
   }, [notifications, user])
 
   // Derive unread count from userNotifications
-  const unreadCount = useMemo(() => {
-    return userNotifications.filter(notification => !notification.isRead).length
-  }, [userNotifications])
+  const unreadCount = isExplicitMockApiMode ? userNotifications.filter(notification => !notification.isRead).length : backendUnreadCount
 
   return {
     notifications: userNotifications,
     unreadCount,
-    markAsRead,
-    markAllAsRead: () => {
-      if (user) {
-        markAllAsRead(user.id, user.role)
-      }
-    },
+    markAsRead: (notificationId: string) => user ? notificationApiService.markRead(notificationId, user.id) : Promise.resolve(undefined),
+    markAllAsRead: () => user ? notificationApiService.markAllRead(user.id) : Promise.resolve(),
     clear: () => {
       if (user) {
         clearRecipientNotifications(user.id, user.role)

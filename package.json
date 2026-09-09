@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"npm run mock-api\" \"npm run dev:web\"",
+    "dev": "npm run dev:web",
+    "dev:mock": "concurrently \"npm run mock-api\" \"VITE_API_MODE=mock npm run dev:web\"",
     "dev:web": "vite",
     "mock-api": "node mock-server/server.js",
     "build": "tsc && vite build",

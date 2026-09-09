@@ -1,32 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { useNotificationStore } from '@/features/notifications/services/notificationStore'
 import { useAuthStore } from '@/store/authStore'
-import { AppNotification } from '@/features/notifications/types/notification.types'
-import { useMemo } from 'react'
+import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 
 const PlayerNotificationsPage = () => {
   const navigate = useNavigate()
   const user = useAuthStore(state => state.user)
-  const { notifications: allNotifications, markAsRead, markAllAsRead } = useNotificationStore(state => state)
-
-  // Derive user-specific notifications outside of Zustand selector
-  const userNotifications = useMemo(() => {
-    if (!user) {
-      return []
-    }
-
-    return allNotifications
-      .filter(notification =>
-        notification.recipientId === user.id &&
-        notification.recipientRole === 'PLAYER'
-      )
-      .slice() // Create a shallow copy to avoid mutating original array
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
-      )
-  }, [allNotifications, user])
+  const { notifications: userNotifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
 
   if (!user) {
     return (
@@ -42,12 +21,12 @@ const PlayerNotificationsPage = () => {
         <h1 className="text-2xl font-bold">Notifications</h1>
         <div className="flex space-x-3">
           <span className="text-sm text-gray-500">
-            Unread: {userNotifications.filter(n => !n.isRead).length}
+            Unread: {unreadCount}
           </span>
           <button
             onClick={handleMarkAllAsRead}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-            disabled={userNotifications.filter(n => !n.isRead).length === 0}
+            disabled={unreadCount === 0}
           >
             Mark All as Read
           </button>
@@ -77,6 +56,7 @@ const PlayerNotificationsPage = () => {
                     <div className="mt-2">
                       <a
                         href={notification.link}
+                        onClick={() => { if (!notification.isRead) void markAsRead(notification.id) }}
                         className="text-sm text-blue-600 hover:text-blue-800 underline"
                       >
                         View Details
@@ -90,9 +70,10 @@ const PlayerNotificationsPage = () => {
                 <div className="ml-4 flex-shrink-0">
                   <button
                     onClick={() => handleMarkAsRead(notification.id)}
+                    disabled={notification.isRead}
                     className={`p-2 rounded ${notification.isRead ? 'bg-gray-200 hover:bg-gray-300' : 'bg-blue-100 hover:bg-blue-200'} text-sm`}
                   >
-                    {notification.isRead ? 'Mark Unread' : 'Mark Read'}
+                    {notification.isRead ? 'Read' : 'Mark Read'}
                   </button>
                 </div>
               </div>
@@ -104,11 +85,11 @@ const PlayerNotificationsPage = () => {
   )
 
   function handleMarkAsRead(id: string) {
-    markAsRead(id)
+    void markAsRead(id)
   }
 
   function handleMarkAllAsRead() {
-    markAllAsRead(user.id, 'PLAYER')
+    void markAllAsRead()
   }
 }
 

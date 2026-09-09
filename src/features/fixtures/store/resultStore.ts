@@ -4,6 +4,7 @@ import { CategoryResult } from '@/features/fixtures/types/fixture.types';
 
 interface ResultStoreState {
   results: CategoryResult[];
+  replaceResults: (results: CategoryResult[]) => void;
   saveCategoryResult: (result: Omit<CategoryResult, 'id'>) => CategoryResult;
   getCategoryResult: (tournamentId: string, categoryId: string) => CategoryResult | undefined;
   getTournamentResults: (tournamentId: string) => CategoryResult[];
@@ -13,6 +14,7 @@ export const useResultStore = create<ResultStoreState>()(
   persist(
     (set, get) => ({
       results: [],
+      replaceResults: (results) => set({ results: Array.isArray(results) ? results : [] }),
 
       saveCategoryResult: (result: Omit<CategoryResult, 'id'>): CategoryResult => {
         // Check if result already exists for this tournament/category
@@ -57,7 +59,7 @@ export const useResultStore = create<ResultStoreState>()(
       }
     }),
     {
-      name: 'badminton-results' // Persistence key
+      name: 'badminton-results', partialize: () => ({}), skipHydration: true
     }
   )
 );

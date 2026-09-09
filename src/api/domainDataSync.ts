@@ -1,4 +1,4 @@
-import apiClient from '@/api/apiClient'
+import apiClient, { isExplicitMockApiMode } from '@/api/apiClient'
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useTeamStore } from '@/features/teams/store/teamStore'
@@ -32,6 +32,9 @@ const writeThrough = (store: StoreApi, key: string, collection: string) => store
 
 let started = false
 export const hydrateAndSyncDomainData = async () => {
+  // The generic collection CRUD below belongs only to the local JSON mock API.
+  // Real Worker endpoints are domain-specific and will be integrated in later phases.
+  if (!isExplicitMockApiMode) return
   if (started) return
   const sources: Array<[StoreApi, string, string]> = [
     [useTournamentStore, 'tournaments', 'tournaments'], [useRegistrationStore, 'registrations', 'registrations'], [useTeamStore, 'teams', 'teams'], [useFixtureStore, 'fixtures', 'fixtures'], [useResultStore, 'results', 'results'], [useMedalHistoryStore, 'medalHistory', 'medals'], [useNotificationStore, 'notifications', 'notifications'], [usePlayerDirectoryStore, 'profiles', 'players'], [useGuestPlayerStore, 'guests', 'guest-players'],

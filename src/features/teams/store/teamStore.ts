@@ -168,7 +168,7 @@ export const useTeamStore = create<TeamStoreState>()(
       }
     }),
     {
-      name: 'badminton-teams', // Persistence key
+      name: 'badminton-teams', partialize: () => ({}), skipHydration: true
     }
   )
 );

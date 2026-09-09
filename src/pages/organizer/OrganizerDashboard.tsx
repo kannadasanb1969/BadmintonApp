@@ -4,6 +4,7 @@ import { useTournamentStore } from '@/features/tournaments/store/tournamentStore
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createDoublesFixtureDemo } from '@/features/tournaments/services/demoTournamentService'
+import { isExplicitMockApiMode } from '@/api/apiClient'
 
 const OrganizerDashboard = () => {
   const user = useAuthStore(state => state.user)
@@ -30,7 +31,7 @@ const OrganizerDashboard = () => {
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-slate-950 to-emerald-900 p-6 text-white sm:flex-row sm:items-end sm:justify-between sm:p-8"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Match control center</p><h1 className="mt-2 text-3xl font-black">Run a smooth tournament.</h1><p className="mt-2 text-sm text-slate-300">Create events, fill draws, and keep every court moving.</p></div><Link to="/organizer/tournaments/new" className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-white">+ Create tournament</Link></section>
-      <button type="button" onClick={async () => { if (!user) return; const id = await createDoublesFixtureDemo(user); navigate(`/organizer/tournaments/${id}`) }} className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100">Create 16-team doubles test tournament</button>
+      {isExplicitMockApiMode && <button type="button" onClick={async () => { if (!user) return; const id = await createDoublesFixtureDemo(user); navigate(`/organizer/tournaments/${id}`) }} className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100">Create 16-team doubles test tournament</button>}
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 p-6 bg-white shadow-sm transition hover:shadow-md">
           <h2 className="text-xl font-semibold mb-4">Tournaments</h2>

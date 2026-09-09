@@ -5,13 +5,14 @@ import { useTournamentStore } from '@/features/tournaments/store/tournamentStore
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
-import { useMedalHistoryStore } from '@/features/medals/store/medalHistoryStore'
 import { registrationService } from '@/features/registrations/services/registrationService'
 
 import { evaluatePlayerEligibility } from '@/features/eligibility/utils/eligibilityUtils'
 import { EligibilityResult } from '@/features/eligibility/types/eligibility.types'
+import { eligibilityService } from '@/features/eligibility/services/eligibilityService'
 import { Fixture, FixtureMatch } from '@/features/fixtures/types/fixture.types'
 import { MedalHistory } from '@/features/medals/types/medalHistory.types'
+import { medalHistoryService } from '@/features/medals/services/medalHistoryService'
 
 import {
   formatDateDisplay,
@@ -31,7 +32,6 @@ const PlayerTournamentDetailPage = () => {
 
   const { profile, hasProfile } = usePlayerProfileStore()
 
-  const medalHistoryStore = useMedalHistoryStore()
 
   const [medalHistory, setMedalHistory] = useState<MedalHistory[]>([])
   const [medalHistoryLoading, setMedalHistoryLoading] =
@@ -77,9 +77,7 @@ const PlayerTournamentDetailPage = () => {
       setMedalHistoryError(null)
 
       try {
-        const playerMedals = medalHistoryStore.getPlayerMedalHistory(
-          profile.id
-        )
+        const playerMedals = await medalHistoryService.getPlayerMedals(profile.id)
 
         setMedalHistory(playerMedals)
       } catch (err: unknown) {
@@ -94,7 +92,7 @@ const PlayerTournamentDetailPage = () => {
     }
 
     void loadMedalHistory()
-  }, [hasProfile, profile, medalHistoryStore])
+  }, [hasProfile, profile])
 
   const playerRegistrations = useMemo(() => {
     if (!hasProfile || !profile || !tournamentId) {
@@ -144,13 +142,11 @@ const PlayerTournamentDetailPage = () => {
               registration.status === 'REGISTERED'
           ).length
 
-          const eligibilityResult = evaluatePlayerEligibility(
-            profile,
-            tournament,
-            category,
-            currentRegistrations,
-            medalHistory
-          )
+          const eligibilityResult = await eligibilityService.check({
+            tournamentId: tournament.id,
+            categoryId: category.id,
+            playerId: profile.id,
+          })
 
           eligibilityMap.set(category.id, eligibilityResult)
         }

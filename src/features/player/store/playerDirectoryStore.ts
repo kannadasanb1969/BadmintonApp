@@ -12,6 +12,7 @@ const normalizeMobile = (mobile: string): string => {
 
 interface PlayerDirectoryState {
   profiles: PlayerProfile[]
+  replaceProfiles: (profiles: PlayerProfile[]) => void
   upsertProfile: (profile: PlayerProfile) => void
   searchProfiles: (query: string) => PlayerProfile[]
   getProfileById: (id: string) => PlayerProfile | undefined
@@ -22,6 +23,7 @@ export const usePlayerDirectoryStore = create<PlayerDirectoryState>()(
   persist(
     (set, get) => ({
       profiles: [],
+      replaceProfiles: (profiles) => set({ profiles: Array.isArray(profiles) ? profiles : [] }),
       upsertProfile: (profile) => {
         set((state) => {
           const existingIndex = state.profiles.findIndex((p) => p.id === profile.id)
@@ -58,7 +60,7 @@ export const usePlayerDirectoryStore = create<PlayerDirectoryState>()(
       },
     }),
     {
-      name: 'badminton-player-directory'
+      name: 'badminton-player-directory', partialize: () => ({}), skipHydration: true
     }
   )
 )
