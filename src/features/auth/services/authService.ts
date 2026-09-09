@@ -26,7 +26,7 @@ export const requestOtp = async (mobile: string): Promise<OtpRequestResponse> =>
 
 export const verifyOtpLogin = async (mobile: string, otp: string, role: Role): Promise<AuthLoginResponse> => {
   if (!/^[6-9]\d{9}$/.test(mobile)) throw new Error('Invalid mobile number')
-  if (!/^\d{6}$/.test(otp)) throw new Error('Enter the six-digit OTP')
+  if (!/^\d{5}$/.test(otp)) throw new Error('Enter the five-digit OTP')
   const response = (await apiClient.post<WorkerAuthResponse>(authPath('/auth/login'), { mobile, otp, role })).data
   return { user: toAuthUser(response), playerProfile: response.playerProfile ?? null }
 }
