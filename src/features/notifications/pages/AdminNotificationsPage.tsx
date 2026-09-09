@@ -1,37 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { useNotificationStore } from '@/features/notifications/services/notificationStore'
 import { useAuthStore } from '@/store/authStore'
-import { AppNotification } from '@/features/notifications/types/notification.types'
-import { useMemo } from 'react'
+import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 
 const AdminNotificationsPage = () => {
   const navigate = useNavigate()
   const user = useAuthStore(state => state.user)
-  const { notifications: allNotifications, markAsRead, markAllAsRead } = useNotificationStore(state => state)
-
-  // Derive user-specific notifications outside of Zustand selector
-  const notifications = useMemo(() => {
-    if (!user) {
-      return []
-    }
-
-    return allNotifications
-      .filter(notification =>
-        notification.recipientId === user.id &&
-        notification.recipientRole === 'ADMIN'
-      )
-      .slice() // Create a shallow copy to avoid mutating original array
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
-      )
-  }, [allNotifications, user])
-
-  // Derive unread count from userNotifications
-  const unreadCount = useMemo(() => {
-    return notifications.filter(notification => !notification.isRead).length
-  }, [notifications])
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
 
   if (!user) {
     return (
@@ -82,6 +56,7 @@ const AdminNotificationsPage = () => {
                     <div className="mt-2">
                       <a
                         href={notification.link}
+                        onClick={() => { if (!notification.isRead) void markAsRead(notification.id) }}
                         className="text-sm text-blue-600 hover:text-blue-800 underline"
                       >
                         View Details
@@ -95,9 +70,10 @@ const AdminNotificationsPage = () => {
                 <div className="ml-4 flex-shrink-0">
                   <button
                     onClick={() => handleMarkAsRead(notification.id)}
+                    disabled={notification.isRead}
                     className={`p-2 rounded ${notification.isRead ? 'bg-gray-200 hover:bg-gray-300' : 'bg-blue-100 hover:bg-blue-200'} text-sm`}
                   >
-                    {notification.isRead ? 'Mark Unread' : 'Mark Read'}
+                    {notification.isRead ? 'Read' : 'Mark Read'}
                   </button>
                 </div>
               </div>
@@ -109,12 +85,12 @@ const AdminNotificationsPage = () => {
   )
 
   function handleMarkAsRead(id: string) {
-    markAsRead(id)
+    void markAsRead(id)
   }
 
   function handleMarkAllAsRead() {
     if (user) {
-      markAllAsRead(user.id, 'ADMIN')
+      void markAllAsRead()
     }
   }
 }

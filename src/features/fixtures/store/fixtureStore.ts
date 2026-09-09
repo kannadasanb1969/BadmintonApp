@@ -504,7 +504,7 @@ export const useFixtureStore = create<FixtureStoreState>()(
       }
     }),
     {
-      name: 'badminton-fixtures', // Persistence key
+      name: 'badminton-fixtures', partialize: () => ({}), skipHydration: true
     }
   )
 );

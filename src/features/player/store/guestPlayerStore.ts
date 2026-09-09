@@ -23,6 +23,7 @@ const normalizeMobile = (mobile: string): string => {
 
 interface GuestPlayerStoreState {
   guests: GuestPlayer[];
+  replaceGuests: (guests: GuestPlayer[]) => void;
   createGuest: (guest: Omit<GuestPlayer, 'id' | 'guestCode' | 'createdAt' | 'updatedAt' | 'profileType' | 'profileStatus'>) => GuestPlayer;
   getGuestById: (id: string) => GuestPlayer | undefined;
   getGuestByMobile: (mobile: string) => GuestPlayer | undefined;
@@ -33,6 +34,7 @@ export const useGuestPlayerStore = create<GuestPlayerStoreState>()(
   persist(
     (set, get) => ({
       guests: [],
+      replaceGuests: (guests) => set({ guests: Array.isArray(guests) ? guests : [] }),
 
       createGuest: (guest) => {
         const now = new Date().toISOString();
@@ -93,7 +95,7 @@ export const useGuestPlayerStore = create<GuestPlayerStoreState>()(
       }
     }),
     {
-      name: 'badminton-guest-players', // Persistence key
+      name: 'badminton-guest-players', partialize: () => ({}), skipHydration: true
     }
   )
 );

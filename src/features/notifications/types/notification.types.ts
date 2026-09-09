@@ -12,6 +12,8 @@ export type NotificationType =
   | 'MATCH_COMPLETED'
   | 'TOURNAMENT_RESULT'
   | 'MEDAL_AWARDED'
+  | 'MEDAL_GOLD'
+  | 'MEDAL_SILVER'
   | 'SYSTEM';
 
 export interface AppNotification {

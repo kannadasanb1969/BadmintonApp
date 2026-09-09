@@ -1,9 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { AppNotification, NotificationType } from '@/features/notifications/types/notification.types'
+import { isExplicitMockApiMode } from '@/api/apiClient'
 
 interface NotificationState {
   notifications: AppNotification[]
+  unreadCount: number
+  replaceNotifications: (notifications: AppNotification[]) => void
+  setUnreadCount: (count: number) => void
+  clearAllNotifications: () => void
   addNotification: (notification: Omit<AppNotification, 'id' | 'createdAt' | 'isRead' | 'readAt'>) => void
   getNotificationsForRecipient: (recipientId: string, recipientRole: 'PLAYER' | 'ORGANIZER' | 'ADMIN') => AppNotification[]
   getUnreadCount: (recipientId: string, recipientRole: 'PLAYER' | 'ORGANIZER' | 'ADMIN') => number
@@ -19,8 +24,13 @@ export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
       notifications: [],
+      unreadCount: 0,
+      replaceNotifications: (notifications) => set({ notifications: Array.isArray(notifications) ? notifications : [] }),
+      setUnreadCount: (count) => set({ unreadCount: Number.isFinite(count) ? count : 0 }),
+      clearAllNotifications: () => set({ notifications: [], unreadCount: 0 }),
 
       addNotification: (notificationData) => {
+        if (!isExplicitMockApiMode) return
         // Check for duplicate notifications based on dedupeKey
         if (notificationData.dedupeKey) {
           const existingNotification = get().notifications.find(
@@ -95,7 +105,7 @@ export const useNotificationStore = create<NotificationState>()(
       }
     }),
     {
-      name: 'badminton-notifications'
+      name: 'badminton-notifications', partialize: () => ({}), skipHydration: true
     }
   )
 )

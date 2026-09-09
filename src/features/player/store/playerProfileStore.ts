@@ -29,7 +29,7 @@ export const usePlayerProfileStore = create<PlayerProfileState>()(
       clearProfile: () => set({ profile: null, hasProfile: false })
     }),
     {
-      name: 'badminton-player-profile'
+      name: 'badminton-player-profile', partialize: () => ({}), skipHydration: true
     }
   )
 )

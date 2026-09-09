@@ -1,10 +1,10 @@
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Navigate } from 'react-router-dom'
-import { useMedalHistoryStore } from '@/features/medals/store/medalHistoryStore'
 import PlayerProfileForm from '@/features/player/components/PlayerProfileForm'
 import { PlayerProfile } from '@/features/player/types/player.types'
 import { MedalHistory } from '@/features/medals/types/medalHistory.types'
+import { medalHistoryService } from '@/features/medals/services/medalHistoryService'
 import { useState, useEffect } from 'react'
 
 const PlayerProfilePage = () => {
@@ -12,7 +12,6 @@ const PlayerProfilePage = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const isEditRoute = location.pathname === '/player/profile/edit'
-  const medalHistoryStore = useMedalHistoryStore()
   const [medalHistory, setMedalHistory] = useState<MedalHistory[]>([])
   const [medalHistoryLoading, setMedalHistoryLoading] = useState<boolean>(false)
   const [medalHistoryError, setMedalHistoryError] = useState<string | null>(null)
@@ -24,7 +23,7 @@ const PlayerProfilePage = () => {
         setMedalHistoryLoading(true)
         setMedalHistoryError(null)
         try {
-          const playerMedals = medalHistoryStore.getPlayerMedalHistory(profile.id)
+          const playerMedals = await medalHistoryService.getPlayerMedals(profile.id)
           setMedalHistory(playerMedals)
         } catch (err) {
           setMedalHistoryError(err instanceof Error ? err.message : 'Failed to load medal history')
@@ -35,7 +34,7 @@ const PlayerProfilePage = () => {
 
       loadMedalHistory()
     }
-  }, [hasProfile, profile, medalHistoryStore])
+  }, [hasProfile, profile])
 
   // If there's no profile and we're on the edit route, redirect to the profile page
   if (!hasProfile && isEditRoute) {
