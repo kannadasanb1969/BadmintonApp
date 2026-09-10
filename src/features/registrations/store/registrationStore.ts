@@ -43,7 +43,7 @@ export const useRegistrationStore = create<RegistrationStoreState>()(
 
       getPlayerRegistrations: (playerId: string) => {
         return get().registrations
-          .filter(reg => reg.playerId === playerId)
+          .filter(reg => reg.playerId === playerId || reg.partnerId === playerId)
           .map(reg => ({ ...reg }));
       },
 
@@ -55,7 +55,7 @@ export const useRegistrationStore = create<RegistrationStoreState>()(
 
       isAlreadyRegistered: (playerId: string, tournamentId: string, categoryId: string) => {
         return get().registrations.some(
-          reg => reg.playerId === playerId && reg.tournamentId === tournamentId && reg.categoryId === categoryId && reg.status === 'REGISTERED'
+          reg => (reg.playerId === playerId || reg.partnerId === playerId) && reg.tournamentId === tournamentId && reg.categoryId === categoryId && reg.status === 'REGISTERED'
         );
       },
 
