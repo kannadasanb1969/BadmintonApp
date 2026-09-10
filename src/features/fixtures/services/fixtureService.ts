@@ -9,6 +9,11 @@ import { useTournamentStore } from '@/features/tournaments/store/tournamentStore
 import { notificationService } from '@/features/notifications/services/notificationService';
 import apiClient, { isExplicitMockApiMode } from '@/api/apiClient';
 import { tournamentService } from '@/features/tournaments/services/tournamentService';
+import { refreshPlayerDirectory } from '@/features/player/services/playerProfileService';
+import { guestPlayerService } from '@/features/player/services/guestPlayerService';
+import { teamService } from '@/features/teams/services/teamService';
+import { usePlayerDirectoryStore } from '@/features/player/store/playerDirectoryStore';
+import { useGuestPlayerStore } from '@/features/player/store/guestPlayerStore';
 
 // Mock delay function to simulate API calls
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -26,14 +31,69 @@ interface FixtureService {
   getFixture: (fixtureId: string) => Promise<Fixture | undefined>;
 }
 
-type WorkerParticipant = { participantId: string; participantType: 'PLAYER' | 'TEAM'; displayName?: string; displayCode?: string };
+type WorkerParticipant = {
+  participantId: string;
+  participantType: 'PLAYER' | 'TEAM';
+  displayName?: string;
+  displayCode?: string;
+  name?: string;
+  playerName?: string;
+  participantName?: string;
+  teamName?: string;
+  playerCode?: string;
+  participantCode?: string;
+};
 type WorkerMatch = Omit<FixtureMatch, 'participant1' | 'participant2' | 'nextMatchSlot'> & { participant1Id: string | null; participant1Type?: string | null; participant2Id: string | null; participant2Type?: string | null; nextMatchSlot: FixtureMatch['nextMatchSlot'] | null };
 type WorkerFixture = Omit<Fixture, 'tournamentCode' | 'categoryName' | 'format' | 'participants' | 'matches'> & { format: string; participants?: WorkerParticipant[]; matches?: WorkerMatch[] };
 
-const fromWorkerFixture = async (raw: WorkerFixture): Promise<Fixture> => {
+type ParticipantDirectory = {
+  playerById: Map<string, { fullName: string; playerCode: string }>;
+  guestById: Map<string, { fullName: string; guestCode: string }>;
+  teamById: Map<string, Team>;
+};
+
+const isIdentifier = (value: string | undefined): boolean => Boolean(value && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value));
+const firstDisplayValue = (...values: Array<string | undefined>): string | undefined => values.find((value) => value && !isIdentifier(value));
+
+const fixtureParticipantDirectory = async (): Promise<ParticipantDirectory> => {
+  if (!isExplicitMockApiMode) {
+    // These are collection requests, deliberately loaded once per fixture response
+    // batch instead of making one request for every participant on the bracket.
+    await refreshPlayerDirectory();
+    await guestPlayerService.loadGuests();
+    await teamService.getTeams();
+  }
+
+  const players = usePlayerDirectoryStore.getState().profiles;
+  const guests = useGuestPlayerStore.getState().guests;
+  const teams = useTeamStore.getState().teams;
+  return {
+    playerById: new Map(players.map((player) => [player.id, player])),
+    guestById: new Map(guests.map((guest) => [guest.id, guest])),
+    teamById: new Map(teams.map((team) => [team.id, team])),
+  };
+};
+
+const fromWorkerFixture = async (raw: WorkerFixture, directory?: ParticipantDirectory): Promise<Fixture> => {
   const tournament = await tournamentService.getTournamentById(raw.tournamentId);
   const category = tournament?.categories.find((item) => item.id === raw.categoryId);
-  const participants = (Array.isArray(raw.participants) ? raw.participants : []).map((item) => ({ id: item.participantId, name: item.displayName ?? item.participantId, code: item.displayCode ?? item.participantId, type: item.participantType }));
+  const participants = (Array.isArray(raw.participants) ? raw.participants : []).map((item) => {
+    const team = item.participantType === 'TEAM' ? directory?.teamById.get(item.participantId) : undefined;
+    const player = item.participantType === 'PLAYER' ? directory?.playerById.get(item.participantId) : undefined;
+    const guest = item.participantType === 'PLAYER' ? directory?.guestById.get(item.participantId) : undefined;
+    const name = firstDisplayValue(
+      item.displayName,
+      item.name,
+      item.playerName,
+      item.participantName,
+      item.teamName,
+      team ? `${team.player1Name} / ${team.player2Name}` : undefined,
+      player?.fullName,
+      guest?.fullName,
+    ) ?? 'Participant pending';
+    const code = firstDisplayValue(item.displayCode, item.playerCode, item.participantCode, team?.teamCode, player?.playerCode, guest?.guestCode) ?? '';
+    return { id: item.participantId, name, code, type: item.participantType };
+  });
   const participant = new Map(participants.map((item) => [item.id, item]));
   return {
     ...raw,
@@ -51,7 +111,9 @@ export const fixtureService: FixtureService = {
   async getFixtures(): Promise<Fixture[]> {
     if (isExplicitMockApiMode) return useFixtureStore.getState().fixtures;
     const data = (await apiClient.get<WorkerFixture[]>('/api/fixtures')).data;
-    const fixtures = await Promise.all((Array.isArray(data) ? data : []).map(fromWorkerFixture));
+    const fixturesRaw = Array.isArray(data) ? data : [];
+    const directory = await fixtureParticipantDirectory();
+    const fixtures = await Promise.all(fixturesRaw.map((fixture) => fromWorkerFixture(fixture, directory)));
     fixtures.forEach(cacheFixture);
     return fixtures;
   },
@@ -207,7 +269,7 @@ export const fixtureService: FixtureService = {
         organizerUserId: organizerId,
         format: format === 'LEAGUE_KNOCKOUT' ? 'LEAGUE' : format,
       }).then(async (response) => {
-        const fixture = await fromWorkerFixture(response.data);
+        const fixture = await fromWorkerFixture(response.data, await fixtureParticipantDirectory());
         cacheFixture(fixture);
         return fixture;
       });
@@ -723,7 +785,7 @@ export const fixtureService: FixtureService = {
   getFixture(fixtureId: string): Promise<Fixture | undefined> {
     if (!isExplicitMockApiMode) {
       return apiClient.get<WorkerFixture>(`/api/fixtures/${fixtureId}`).then(async (response) => {
-        const fixture = await fromWorkerFixture(response.data);
+        const fixture = await fromWorkerFixture(response.data, await fixtureParticipantDirectory());
         cacheFixture(fixture);
         return fixture;
       });
