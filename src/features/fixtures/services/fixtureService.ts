@@ -729,7 +729,15 @@ export const fixtureService: FixtureService = {
    * Only works on DRAFT fixtures.
    */
   publishFixture(organizerId: string, fixtureId: string): Promise<Fixture> {
-    if (!isExplicitMockApiMode) return Promise.reject(new Error('Fixture publishing is not available from the Worker API yet.'));
+    if (!isExplicitMockApiMode) {
+      // The authenticated Bearer token is attached by the centralized apiClient.
+      // The Worker requires a JSON body even though this transition has no fields.
+      return apiClient.post<WorkerFixture>(`/api/fixtures/${fixtureId}/publish`, {}).then(async () => {
+        const fixture = await fixtureService.getFixture(fixtureId);
+        if (!fixture) throw new Error('Published fixture could not be reloaded');
+        return fixture;
+      });
+    }
     return new Promise(async (resolve, reject) => {
       try {
         await delay(500);

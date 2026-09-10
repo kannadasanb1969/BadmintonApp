@@ -302,11 +302,6 @@ const PlayerTournamentDetailPage = () => {
       return
     }
 
-    if (category.registrationPhase === 'CLOSED') {
-      setRegistrationStatus((previous) => ({ ...previous, [categoryId]: { success: false, message: 'Registration Closed' } }))
-      return
-    }
-
     const alreadyRegistered = playerRegistrations.some(
       (registration) =>
         registration.categoryId === categoryId &&
@@ -322,6 +317,11 @@ const PlayerTournamentDetailPage = () => {
         },
       }))
 
+      return
+    }
+
+    if (category.registrationPhase === 'CLOSED') {
+      setRegistrationStatus((previous) => ({ ...previous, [categoryId]: { success: false, message: 'Registration Closed' } }))
       return
     }
 
@@ -638,7 +638,7 @@ const PlayerTournamentDetailPage = () => {
                     )}
                   </div>
 
-                  {fixture && (
+                  {fixture?.status === 'PUBLISHED' && (
                     <div className="mt-4 p-3 bg-gray-50 rounded">
                       <h4 className="text-lg font-semibold mb-2">
                         {fixture.status === 'PUBLISHED'
@@ -805,9 +805,13 @@ const PlayerTournamentDetailPage = () => {
                       </div>
                     ) : loadingRegistrations ? (
                       <p className="text-sm text-gray-500">Checking your registration...</p>
+                    ) : category.registrationPhase === 'CLOSED' ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="font-bold text-slate-800">Registration Closed</p>
+                        <p className="mt-1 text-sm text-slate-600">This category is no longer accepting new registrations.</p>
+                      </div>
                     ) : (
                       <>
-                    {category.registrationPhase === 'CLOSED' && <p className="player-ineligible">Registration Closed</p>}
                     {eligibility ? (
                       eligibility.eligible ? (
                         <>
