@@ -461,8 +461,8 @@ const MatchScoringPage = () => {
 
           {/* Participant 2 Score Controls */}
           <div className="flex justify-between items-start mt-4">
-            {canScoreMatch(match) && !match.participant1Score && !match.participant2Score ? (
-              // Already handled in P1 section, just show scores
+            {!canScoreMatch(match) ? (
+              // Scheduled and completed matches remain read-only.
               <div className="flex justify-between items-start">
                 <span className="font-medium text-gray-700">P2 Score:</span>
                 <span className="text-sm">

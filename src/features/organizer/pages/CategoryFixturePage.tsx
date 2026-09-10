@@ -494,8 +494,8 @@ const CategoryFixturePage = () => {
                 </div>
 
                 {/* Participant 2 Score Controls */}
-                {canScoreMatch(match) && !match.participant1Score && !match.participant2Score ? (
-                  // Already handled in P1 section, just show scores
+                {!canScoreMatch(match) ? (
+                  // Scheduled and completed matches remain read-only.
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P2 Score:</span>
                     <span className="text-sm">
