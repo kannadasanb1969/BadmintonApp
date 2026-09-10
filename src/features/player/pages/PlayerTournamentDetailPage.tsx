@@ -261,6 +261,13 @@ const PlayerTournamentDetailPage = () => {
     return match.status === 'LIVE' || match.status === 'COMPLETED'
   }
 
+  // Partner selection is the next step for an otherwise eligible doubles
+  // player. It is not a category-level rejection, so keep this Worker reason
+  // out of the red eligibility state until a partner has actually been chosen.
+  const isPartnerSelectionReason = (reason: EligibilityResult['reasons'][number]) => (
+    String(reason.code) === 'PARTNER_REQUIRED' || /(?:doubles )?partner is required/i.test(reason.message)
+  )
+
   const handleRegister = async (categoryId: string) => {
     if (!hasProfile || !profile) {
       setRegistrationStatus((previous) => ({
@@ -552,8 +559,13 @@ const PlayerTournamentDetailPage = () => {
 
           <div className="grid gap-4 lg:grid-cols-2">
             {tournament.categories.map((category, index) => {
-              const eligibility =
-                eligibilityResults.get(category.id)
+              const eligibility = eligibilityResults.get(category.id)
+              const playerOnlyReasons = category.eventType === 'DOUBLES'
+                ? eligibility?.reasons.filter((reason) => !isPartnerSelectionReason(reason)) ?? []
+                : eligibility?.reasons ?? []
+              const isEligibleForCategory = Boolean(eligibility?.eligible || (
+                category.eventType === 'DOUBLES' && eligibility && playerOnlyReasons.length === 0
+              ))
 
               const isRegistered =
                 playerRegistrations.some(
@@ -809,7 +821,7 @@ const PlayerTournamentDetailPage = () => {
                     ) : (
                       <>
                     {eligibility ? (
-                      eligibility.eligible ? (
+                      isEligibleForCategory ? (
                         <>
                           <p className="player-eligible">
                             ✓ You are eligible to play
@@ -874,7 +886,7 @@ const PlayerTournamentDetailPage = () => {
                           </p>
 
                           <ul className="mt-2 space-y-1 text-sm text-red-600">
-                            {eligibility.reasons.map(
+                            {playerOnlyReasons.map(
                               (reason, index) => (
                                 <li
                                   key={`${reason.code}-${index}`}
