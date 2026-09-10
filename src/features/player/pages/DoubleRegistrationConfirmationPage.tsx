@@ -83,6 +83,7 @@ const DoubleRegistrationConfirmationPage = () => {
   const [partnerEligibility, setPartnerEligibility] = useState<boolean | null>(null)
   const [currentPlayerRejectionReasons, setCurrentPlayerRejectionReasons] = useState<string[]>([])
   const [partnerRejectionReasons, setPartnerRejectionReasons] = useState<string[]>([])
+  const [loadingCategoryPhase, setLoadingCategoryPhase] = useState(true)
 
   useEffect(() => {
     // Validate that we have the required data in the draft store
@@ -97,11 +98,13 @@ const DoubleRegistrationConfirmationPage = () => {
   }, [draftTournamentId, draftCategoryId, currentPlayerId, tournamentId, categoryId, navigate])
 
   useEffect(() => {
-    // Fetch tournament if not already loaded
+    // Always load the route's current category phase before confirmation.
     if (tournamentId && categoryId) {
       const fetchTournament = async () => {
-        if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
+        try {
           await tournamentStore.fetchTournamentById(tournamentId)
+        } finally {
+          setLoadingCategoryPhase(false)
         }
       }
       fetchTournament()
@@ -124,9 +127,7 @@ const DoubleRegistrationConfirmationPage = () => {
     setError(null)
 
     try {
-      if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
-        await tournamentStore.fetchTournamentById(tournamentId)
-      }
+      await tournamentStore.fetchTournamentById(tournamentId)
 
       const tournament = tournamentStore.tournament
       if (!tournament) return
@@ -167,9 +168,7 @@ const DoubleRegistrationConfirmationPage = () => {
     setError(null)
 
     try {
-      if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
-        await tournamentStore.fetchTournamentById(tournamentId)
-      }
+      await tournamentStore.fetchTournamentById(tournamentId)
 
       const tournament = tournamentStore.tournament
       if (!tournament) return
@@ -307,15 +306,6 @@ const DoubleRegistrationConfirmationPage = () => {
       }
       if (category.registrationPhase === 'CLOSED') {
         throw new Error('Registration Closed')
-      }
-
-      // Check registration open
-      const now = new Date()
-      const closeDate = new Date(tournament.registrationCloseDate)
-      const closeTime = tournament.registrationCloseTime.split(':')
-      closeDate.setHours(parseInt(closeTime[0]), parseInt(closeTime[1]), 0, 0)
-      if (now >= closeDate) {
-        throw new Error('Registration is closed')
       }
 
       // Check current player eligibility
@@ -505,6 +495,10 @@ const DoubleRegistrationConfirmationPage = () => {
     )
   }
 
+  if (loadingCategoryPhase) {
+    return <div className="text-center py-8">Loading registration status...</div>
+  }
+
   if (!hasProfile || !currentProfile) {
     return (
       <div className="p-4">
@@ -566,6 +560,14 @@ const DoubleRegistrationConfirmationPage = () => {
         <p className="text-red-500">
           Invalid category type for doubles registration
         </p>
+      </div>
+    )
+  }
+
+  if (category.registrationPhase === 'CLOSED') {
+    return (
+      <div className="p-4">
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">Registration Closed</p>
       </div>
     )
   }

@@ -7,8 +7,8 @@ import { usePlayerProfileStore } from '@/features/player/store/playerProfileStor
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useDoublesRegistrationDraftStore } from '@/features/teams/store/doublesRegistrationDraftStore'
 
-import { evaluatePlayerEligibility } from '@/features/eligibility/utils/eligibilityUtils'
 import { EligibilityResult } from '@/features/eligibility/types/eligibility.types'
+import { eligibilityService } from '@/features/eligibility/services/eligibilityService'
 
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 
@@ -24,10 +24,7 @@ const PartnerChoicePage = () => {
 
   const { profile, hasProfile } = usePlayerProfileStore()
 
-  const {
-    registrations,
-    getTournamentRegistrations,
-  } = useRegistrationStore()
+  const { registrations } = useRegistrationStore()
 
   const {
     setTournamentAndCategory,
@@ -36,7 +33,7 @@ const PartnerChoicePage = () => {
   } = useDoublesRegistrationDraftStore()
 
   const [eligibilityResult, setEligibilityResult] = useState<EligibilityResult | null>(null)
-  const [checkingEligibility, setCheckingEligibility] = useState<boolean>(false)
+  const [checkingEligibility, setCheckingEligibility] = useState<boolean>(true)
 
   useEffect(() => {
     if (tournamentId && categoryId && hasProfile && profile) {
@@ -51,36 +48,61 @@ const PartnerChoicePage = () => {
   const fetchTournamentAndCheckEligibility = async () => {
     if (!tournamentId || !categoryId) return
 
-    // Fetch tournament if not already loaded
+    setCheckingEligibility(true)
+    // Always refresh this route's category. A persisted tournament can have an
+    // older registrationPhase after a manual close/reopen or a hard refresh.
     const tournamentStore = useTournamentStore.getState()
-    if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
-      await tournamentStore.fetchTournamentById(tournamentId)
-    }
+    await tournamentStore.fetchTournamentById(tournamentId)
 
     const { tournament } = tournamentStore
-    if (!tournament) return
+    if (!tournament) {
+      setCheckingEligibility(false)
+      return
+    }
 
     const { profile, hasProfile } = usePlayerProfileStore.getState()
-    if (!hasProfile || !profile) return
+    if (!hasProfile || !profile) {
+      setCheckingEligibility(false)
+      return
+    }
 
-    setCheckingEligibility(true)
     try {
-      const tournamentRegistrations = getTournamentRegistrations(tournament.id)
-      const currentRegistrations = tournamentRegistrations.filter(
-        (reg) =>
-          reg.categoryId === categoryId &&
-          reg.status === 'REGISTERED'
-      ).length
+      const category = tournament.categories.find((item) => item.id === categoryId)
+      if (!category) return
 
-      const eligibility = evaluatePlayerEligibility(
-        profile,
-        tournament,
-        tournament.categories.find(c => c.id === categoryId)!,
-        currentRegistrations
+      // The category phase returned by the Worker is authoritative. Do not use
+      // a cached tournament date to turn an OPEN category into a closed one.
+      if (category.registrationPhase === 'CLOSED') {
+        const closed: EligibilityResult = {
+          eligible: false,
+          reasons: [{ code: 'REGISTRATION_CLOSED', message: 'Registration Closed' }],
+        }
+        setEligibilityResult(closed)
+        setEligibility(false, null)
+        return
+      }
+
+      const eligibility = await eligibilityService.check({
+        tournamentId,
+        categoryId,
+        playerId: profile.id,
+      })
+      const playerOnlyReasons = (eligibility.reasons ?? []).filter(
+        (reason) => String(reason.code) !== 'PARTNER_REQUIRED' && !/(?:doubles )?partner is required/i.test(reason.message)
       )
-      setEligibilityResult(eligibility)
+      const playerEligible = eligibility.eligible || playerOnlyReasons.length === 0
+      setEligibilityResult({ ...eligibility, eligible: playerEligible, reasons: playerOnlyReasons })
       // Store current player eligibility in draft store
-      setEligibility(eligibility.eligible, null) // partner eligibility unknown yet
+      setEligibility(playerEligible, null) // partner eligibility unknown yet
+    } catch (error) {
+      setEligibilityResult({
+        eligible: false,
+        reasons: [{
+          code: 'PROFILE_INCOMPLETE',
+          message: error instanceof Error ? error.message : 'Unable to check eligibility. Please try again.',
+        }],
+      })
+      setEligibility(false, null)
     } finally {
       setCheckingEligibility(false)
     }
@@ -167,6 +189,14 @@ const PartnerChoicePage = () => {
     )
   }
 
+  const alreadyRegistered = registrations.some(
+    (registration) =>
+      registration.tournamentId === tournamentId &&
+      registration.categoryId === categoryId &&
+      registration.status === 'REGISTERED' &&
+      registration.playerId === profile.id
+  )
+
   return (
     <div className="p-4">
       <div className="flex justify-between items-start mb-4">
@@ -203,6 +233,14 @@ const PartnerChoicePage = () => {
       {checkingEligibility ? (
         <div className="text-center py-8">
           Checking eligibility...
+        </div>
+      ) : category.registrationPhase === 'CLOSED' ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+          Registration Closed
+        </div>
+      ) : alreadyRegistered ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-700">
+          You are already registered for this category.
         </div>
       ) : eligibilityResult ? (
         eligibilityResult.eligible ? (
