@@ -30,6 +30,9 @@ export interface TournamentCategory {
   additionalRuleNotes?: string;
   registrationPhase?: RegistrationPhase;
   registrationClosedAt?: string | null;
+  registeredPlayerCount?: number | null;
+  registeredEntryCount?: number | null;
+  registeredTeamCount?: number | null;
 }
 
 export interface Tournament {
@@ -64,6 +67,9 @@ export interface Tournament {
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
   submittedAt?: string; // ISO timestamp
+  registeredPlayerCount?: number | null;
+  registeredEntryCount?: number | null;
+  registeredTeamCount?: number | null;
 }
 
 // Form types for creating/updating tournament

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { tournamentService } from '@/features/tournaments/services/tournamentService';
 import { Tournament } from '@/features/tournaments/types/tournament.types';
-import { canSubmitForApproval, formatDateDisplay, formatTimeDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers';
+import { canSubmitForApproval, displayRegistrationCount, formatDateDisplay, formatTimeDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers';
 import { useAuthStore } from '@/store/authStore';
 
 const TournamentDetailPage = () => {
@@ -188,6 +188,10 @@ const TournamentDetailPage = () => {
                     <div>
                       <p className="font-medium mb-1">Event Type</p>
                       <p>{category.eventType === 'SINGLES' ? 'Singles' : 'Doubles'}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Registrations</p>
+                      <div className="flex flex-wrap gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">👥 {displayRegistrationCount(category.registeredPlayerCount)} Registered</span>{category.eventType === 'DOUBLES' && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">🏸 {displayRegistrationCount(category.registeredTeamCount)} Teams</span>}</div>
                     </div>
                     <div>
                       <p className="font-medium mb-1">Medalists Allowed</p>
