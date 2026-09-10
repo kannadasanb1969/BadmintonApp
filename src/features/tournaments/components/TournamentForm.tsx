@@ -26,6 +26,12 @@ interface TournamentFormProps {
   onSubmitForApprovalError?: (error: unknown) => void;
 }
 
+const categoryNameForEventType = (eventType?: EventType): string => {
+  if (eventType === 'SINGLES') return 'Singles'
+  if (eventType === 'DOUBLES') return 'Doubles'
+  return ''
+}
+
 const TournamentForm = ({
   onSubmitSuccess,
   onSubmitError,
@@ -40,7 +46,7 @@ const TournamentForm = ({
   const [initialCategories, setInitialCategories] = useState<TournamentCategory[]>([
     {
       id: '', // Will be removed in form values
-      name: '',
+      name: 'Singles',
       eventType: 'SINGLES' as EventType,
       medalistsAllowed: false,
       openPlayersAllowed: false,
@@ -149,6 +155,15 @@ const TournamentForm = ({
   // Watch for category changes to validate (optional, for live validation if desired)
   const categories = watch('categories');
 
+  useEffect(() => {
+    categories.forEach((category, index) => {
+      const generatedName = categoryNameForEventType(category.eventType)
+      if (generatedName && category.name !== generatedName) {
+        setValue(`categories.${index}.name`, generatedName)
+      }
+    })
+  }, [categories, setValue])
+
   const updateCustomRule = (id: number, changes: Partial<{ text: string; enabled: boolean }>) => {
     const updatedRules = customRules.map(rule => rule.id === id ? { ...rule, ...changes } : rule);
     setCustomRules(updatedRules);
@@ -203,9 +218,6 @@ const TournamentForm = ({
     } else {
       // Validate each category
       data.categories.forEach((category, index) => {
-        if (!category.name) {
-          fieldErrors[`categories.${index}.name`] = 'Category name is required';
-        }
         if (!category.eventType) {
           fieldErrors[`categories.${index}.eventType`] = 'Event Type is required';
         }
@@ -254,6 +266,10 @@ const TournamentForm = ({
       setLoading(true);
       const normalizedData = {
         ...data,
+        categories: data.categories.map((category) => ({
+          ...category,
+          name: categoryNameForEventType(category.eventType),
+        })),
         generalRules: (Array.isArray(data.generalRules) ? data.generalRules : String(data.generalRules ?? '').split('\n')).map(rule => String(rule).trim()).filter(Boolean),
       } as TournamentFormValues;
 
@@ -286,7 +302,7 @@ const TournamentForm = ({
         categories: [
           {
             id: '',
-            name: '',
+            name: 'Singles',
             eventType: 'SINGLES' as EventType,
             medalistsAllowed: false,
             openPlayersAllowed: false,
@@ -316,7 +332,14 @@ const TournamentForm = ({
     try {
       setLoading(true);
 
-      const data = getValues();
+      const formData = getValues();
+      const data = {
+        ...formData,
+        categories: formData.categories.map((category) => ({
+          ...category,
+          name: categoryNameForEventType(category.eventType),
+        })),
+      };
       const fieldErrors = validateForSubmission(data);
 
       // If there are field errors, set them in the form
@@ -484,24 +507,6 @@ const TournamentForm = ({
             {categories.map((category, index) => (
               <div key={index} className="border rounded p-4 bg-gray-50">
                 <div className="space-y-3">
-                  <div>
-                    <label htmlFor={`category-name-${index}`} className="mb-2 block text-sm font-medium">
-                      Category Name <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                      id={`category-name-${index}`}
-                      {...register(`categories.${index}.name`, {
-                        required: 'Category name is required',
-                      })}
-                      type="text"
-                      className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder={category.eventType === 'DOUBLES' ? "e.g., Men's Doubles" : "e.g., Men's Singles"}
-                    />
-                    {errors.categories?.[index]?.name && (
-                      <p className="mt-1 text-sm text-red-600">{errors.categories[index]?.name?.message}</p>
-                    )}
-                  </div>
-
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label htmlFor={`category-event-type-${index}`} className="mb-2 block text-sm font-medium">
@@ -526,6 +531,13 @@ const TournamentForm = ({
                       <label htmlFor={`category-gender-eligibility-${index}`} className="mb-2 block text-sm font-medium">Player eligibility</label>
                       <select id={`category-gender-eligibility-${index}`} {...register(`categories.${index}.genderEligibility`)} className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="OPEN">Open to all</option><option value="WOMEN_ONLY">Women only</option><option value="MEN_ONLY">Men only</option></select>
                     </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-sm font-medium text-slate-600">Category</p>
+                    <p className="rounded border border-slate-200 bg-slate-100 px-4 py-2 font-semibold text-slate-800">
+                      {categoryNameForEventType(category.eventType) || 'Select an event type'}
+                    </p>
                   </div>
 
                   <div className="flex items-center space-x-2">
