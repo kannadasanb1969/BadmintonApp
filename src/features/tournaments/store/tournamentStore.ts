@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Tournament, TournamentFormValues, TournamentStatus } from '@/features/tournaments/types/tournament.types';
 import { normalizeTimeValue } from '@/features/tournaments/utils/tournamentHelpers';
+import { isExplicitMockApiMode } from '@/api/apiClient';
 
 // Helper function to generate category IDs
 const generateCategoryId = () =>
@@ -273,6 +274,16 @@ export const useTournamentStore = create<TournamentStoreState>()(
       closeCategoryRegistration: async (organizerId: string, tournamentId: string, categoryId: string) => {
         set({ loading: true, error: null });
         try {
+          if (!isExplicitMockApiMode) {
+            const { tournamentService } = await import('@/features/tournaments/services/tournamentService');
+            const updatedTournament = await tournamentService.closeCategoryRegistration(tournamentId, categoryId);
+            set(state => ({
+              tournaments: state.tournaments.map(item => item.id === tournamentId ? updatedTournament : item),
+              tournament: state.tournament?.id === tournamentId ? updatedTournament : state.tournament,
+              loading: false,
+            }));
+            return;
+          }
           // Simulate API delay
           await new Promise(resolve => setTimeout(resolve, 500));
           const state = get();
@@ -311,10 +322,16 @@ export const useTournamentStore = create<TournamentStoreState>()(
             const updatedTournaments = state.tournaments.map(t =>
               t.id === tournamentId ? updatedTournament : t
             );
-            return { tournaments: updatedTournaments, loading: false };
+            return {
+              tournaments: updatedTournaments,
+              tournament: state.tournament?.id === tournamentId ? updatedTournament : state.tournament,
+              loading: false,
+            };
           });
         } catch (err) {
-          set({ loading: false, error: err instanceof Error ? err.message : 'An unknown error occurred' });
+          const error = err instanceof Error ? err : new Error('An unknown error occurred');
+          set({ loading: false, error: error.message });
+          throw error;
         }
       },
 
