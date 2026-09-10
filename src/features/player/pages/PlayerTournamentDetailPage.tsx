@@ -277,6 +277,11 @@ const PlayerTournamentDetailPage = () => {
       return
     }
 
+    if (category.registrationPhase === 'CLOSED') {
+      setRegistrationStatus((previous) => ({ ...previous, [categoryId]: { success: false, message: 'Registration Closed' } }))
+      return
+    }
+
     const alreadyRegistered = playerRegistrations.some(
       (registration) =>
         registration.categoryId === categoryId &&
@@ -760,6 +765,7 @@ const PlayerTournamentDetailPage = () => {
                   )}
 
                   <div className="player-eligibility-panel">
+                    {category.registrationPhase === 'CLOSED' && <p className="player-ineligible">Registration Closed</p>}
                     {eligibility ? (
                       eligibility.eligible ? (
                         <>
@@ -771,6 +777,7 @@ const PlayerTournamentDetailPage = () => {
                             <>
                               {category.eventType ===
                                 'SINGLES' &&
+                                category.registrationPhase === 'OPEN' &&
                                 !isRegistered && (
                                   <button
                                     type="button"
@@ -787,6 +794,7 @@ const PlayerTournamentDetailPage = () => {
 
                               {category.eventType ===
                                 'DOUBLES' &&
+                                category.registrationPhase === 'OPEN' &&
                                 !isRegistered && (
                                   <button
                                     type="button"
