@@ -229,7 +229,10 @@ export const evaluatePlayerEligibility = (
   reasons.push(...checkBeginnerEligibility(profile, category));
 
   // 8. Check category capacity (if maxTeams exists and we have current registrations)
-  if (category.maxTeams !== undefined && currentRegistrations >= category.maxTeams) {
+  const maxTeams = typeof category.maxTeams === 'number' && category.maxTeams > 0
+    ? category.maxTeams
+    : undefined;
+  if (maxTeams !== undefined && currentRegistrations >= maxTeams) {
     reasons.push({
       code: 'CATEGORY_FULL',
       message: 'Category is full',

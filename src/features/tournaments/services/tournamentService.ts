@@ -5,7 +5,7 @@ import { useTournamentStore } from '@/features/tournaments/store/tournamentStore
 import { useAuthStore } from '@/store/authStore'
 import { notificationService } from '@/features/notifications/services/notificationService'
 
-type WorkerCategory = Omit<TournamentCategory, 'genderEligibility'> & { gender?: 'MALE' | 'FEMALE' | 'ANY' | 'MIXED'; genderEligibility?: TournamentCategory['genderEligibility'] }
+type WorkerCategory = Omit<TournamentCategory, 'genderEligibility' | 'maxTeams'> & { gender?: 'MALE' | 'FEMALE' | 'ANY' | 'MIXED'; genderEligibility?: TournamentCategory['genderEligibility']; maxTeams?: number | null }
 type WorkerTournament = Omit<Tournament, 'tournamentDate' | 'registrationCloseDate' | 'venueName' | 'venueAddress' | 'format' | 'categories'> & {
   startDate?: string; registrationEndDate?: string | null; venue?: string | null; location?: string | null
   fixtureFormat?: string; categories?: WorkerCategory[]
@@ -23,6 +23,11 @@ const toFormat = (value?: string): Tournament['format'] => {
   return value === 'LEAGUE' || value === 'LEAGUE_KNOCKOUT' ? value : 'KNOCKOUT'
 }
 
+const toMaxTeams = (value: unknown): number | undefined => {
+  const maxTeams = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(maxTeams) && maxTeams > 0 ? maxTeams : undefined
+}
+
 const fromWorkerTournament = (value: WorkerTournament): Tournament => ({
   ...value,
   description: value.description ?? '',
@@ -33,6 +38,7 @@ const fromWorkerTournament = (value: WorkerTournament): Tournament => ({
   format: toFormat(value.fixtureFormat),
   categories: (Array.isArray(value.categories) ? value.categories : []).map((category) => ({
     ...category,
+    maxTeams: toMaxTeams(category.maxTeams),
     genderEligibility: toGenderEligibility(category.genderEligibility ?? category.gender),
   })),
   generalRules: Array.isArray(value.generalRules) ? value.generalRules : [],

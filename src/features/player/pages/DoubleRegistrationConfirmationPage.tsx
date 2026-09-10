@@ -6,7 +6,6 @@ import { usePlayerProfileStore } from '@/features/player/store/playerProfileStor
 import { useGuestPlayerStore } from '@/features/player/store/guestPlayerStore'
 import { usePlayerDirectoryStore } from '@/features/player/store/playerDirectoryStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
-import { useTeamStore } from '@/features/teams/store/teamStore'
 import { useDoublesRegistrationDraftStore } from '@/features/teams/store/doublesRegistrationDraftStore'
 
 import { registrationService } from '@/features/registrations/services/registrationService'
@@ -52,10 +51,6 @@ const DoubleRegistrationConfirmationPage = () => {
   } = useRegistrationStore()
 
   const {
-    teams: allTeams,
-  } = useTeamStore()
-
-  const {
     tournamentId: draftTournamentId,
     categoryId: draftCategoryId,
     currentPlayerId,
@@ -71,7 +66,6 @@ const DoubleRegistrationConfirmationPage = () => {
   // Store selectors for use in event handlers (must be at top level)
   const tournamentStore = useTournamentStore(state => state)
   const registrationStore = useRegistrationStore(state => state)
-  const teamStore = useTeamStore(state => state)
   const playerDirectoryStore = usePlayerDirectoryStore(state => state)
   const guestPlayerStore = useGuestPlayerStore(state => state)
 
@@ -356,11 +350,13 @@ const DoubleRegistrationConfirmationPage = () => {
         throw new Error('Partner is already registered for this category')
       }
 
-      // Check if current player is already in another active team for same tournament/category
-      const currentPlayerTeams = teamStore.getPlayerTeams(currentProfile!.id)
-      const currentPlayerInAnotherTeam = currentPlayerTeams.some(team =>
-        team.tournamentId === tournamentId &&
-        team.categoryId === categoryId &&
+      // Refresh teams from the Worker before checking duplicate pairs and
+      // capacity. The registration endpoint remains authoritative on submit.
+      const categoryTeams = await teamService.getCategoryTeams(tournamentId, categoryId)
+
+      // Check if current player is already in another active team for this category.
+      const currentPlayerInAnotherTeam = categoryTeams.some(team =>
+        (team.player1Id === currentProfile!.id || team.player2Id === currentProfile!.id) &&
         team.status === 'CONFIRMED'
       )
       if (currentPlayerInAnotherTeam) {
@@ -372,20 +368,16 @@ const DoubleRegistrationConfirmationPage = () => {
       if (partnerType === 'FULL') {
         const partnerProfile = playerDirectoryStore.getProfileById(partnerId)
         if (partnerProfile) {
-          const partnerTeams = teamStore.getPlayerTeams(partnerProfile.id)
-          partnerInAnotherTeam = partnerTeams.some(team =>
-            team.tournamentId === tournamentId &&
-            team.categoryId === categoryId &&
+          partnerInAnotherTeam = categoryTeams.some(team =>
+            (team.player1Id === partnerProfile.id || team.player2Id === partnerProfile.id) &&
             team.status === 'CONFIRMED'
           )
         }
       } else if (partnerType === 'GUEST') {
         const guest = guestPlayerStore.getGuestById(partnerId)
         if (guest) {
-          const guestTeams = teamStore.getPlayerTeams(guest.id)
-          partnerInAnotherTeam = guestTeams.some(team =>
-            team.tournamentId === tournamentId &&
-            team.categoryId === categoryId &&
+          partnerInAnotherTeam = categoryTeams.some(team =>
+            (team.player1Id === guest.id || team.player2Id === guest.id) &&
             team.status === 'CONFIRMED'
           )
         }
@@ -394,27 +386,21 @@ const DoubleRegistrationConfirmationPage = () => {
         throw new Error('Partner is already in another team for this category')
       }
 
-      // Check if the pair already exists as a team
-      let teamExists = false
-      try {
-        teamExists = await teamService.teamExists(
-          tournamentId,
-          categoryId,
-          currentProfile!.id,
-          partnerId
-        )
-      } catch (err) {
-        setError('Failed to check if team already exists. Please try again.')
-        return
-      }
+      // Check if the pair already exists as a team.
+      const teamExists = categoryTeams.some((team) =>
+        (team.player1Id === currentProfile!.id && team.player2Id === partnerId) ||
+        (team.player1Id === partnerId && team.player2Id === currentProfile!.id)
+      )
       if (teamExists) {
         throw new Error('A team with these two players already exists for this category')
       }
 
       // Check category capacity (for doubles, we count CONFIRMED teams)
-      const confirmedTeams = teamStore.getCategoryTeams(tournamentId, categoryId)
-        .filter(team => team.status === 'CONFIRMED')
-      if (category.maxTeams !== undefined && confirmedTeams.length >= category.maxTeams) {
+      const confirmedTeams = categoryTeams.filter(team => team.status === 'CONFIRMED')
+      const maxTeams = typeof category.maxTeams === 'number' && category.maxTeams > 0
+        ? category.maxTeams
+        : undefined
+      if (maxTeams !== undefined && confirmedTeams.length >= maxTeams) {
         throw new Error('Category is full')
       }
 
@@ -750,13 +736,13 @@ const DoubleRegistrationConfirmationPage = () => {
           className="ml-4 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600"
           disabled={
             isLoading ||
+            success ||
             currentPlayerEligibility !== true ||
             partnerEligibility !== true ||
-            (partnerType === 'FULL' && !partnerAccepted) ||
-            error !== null
+            (partnerType === 'FULL' && !partnerAccepted)
           }
         >
-          Confirm Team & Register
+          {isLoading ? 'Registering...' : success ? 'Registration Complete' : 'Confirm Team & Register'}
         </button>
       </div>
     </div>
