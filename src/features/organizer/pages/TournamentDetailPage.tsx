@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { tournamentService } from '@/features/tournaments/services/tournamentService';
 import { Tournament } from '@/features/tournaments/types/tournament.types';
-import { formatDateDisplay, formatTimeDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers';
+import { canSubmitForApproval, formatDateDisplay, formatTimeDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers';
 import { useAuthStore } from '@/store/authStore';
 
 const TournamentDetailPage = () => {
@@ -13,6 +13,7 @@ const TournamentDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittingForApproval, setSubmittingForApproval] = useState(false);
 
   useEffect(() => {
     const fetchTournament = async () => {
@@ -62,24 +63,25 @@ const TournamentDetailPage = () => {
   }
 
   const { label, color } = getStatusLabel(tournament.status);
+  const canSubmit = canSubmitForApproval(tournament.status);
 
   const handleEdit = () => {
     navigate(`/organizer/tournaments/${tournament.id}/edit`);
   };
 
   const handleSubmitForApproval = async () => {
+    if (!canSubmit || submittingForApproval) return;
     setSubmitError(null);
+    setSubmittingForApproval(true);
     try {
-      await tournamentService.submitTournamentForApproval(tournament.id);
-      // Refetch the tournament to update status
-      const updated = await tournamentService.getTournamentById(tournament.id);
-      if (updated) {
-        setTournament(updated);
-      }
+      const updated = await tournamentService.submitTournamentForApproval(tournament.id);
+      setTournament(updated);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit tournament for approval';
       setSubmitError(errorMessage);
       console.error('Failed to submit tournament for approval:', err);
+    } finally {
+      setSubmittingForApproval(false);
     }
   };
 
@@ -109,13 +111,13 @@ const TournamentDetailPage = () => {
               </button>
             )}
 
-            {/* Submit for Approval button - only show for draft tournaments */}
-            {tournament.status === 'DRAFT' && (
+            {canSubmit && (
               <button
                 onClick={handleSubmitForApproval}
-                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                disabled={submittingForApproval}
+                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Submit for Approval
+                {submittingForApproval ? 'Submitting...' : 'Submit for Approval'}
               </button>
             )}
           </div>
