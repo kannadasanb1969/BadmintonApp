@@ -1,7 +1,7 @@
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { formatDateDisplay, formatTimeDisplay } from '@/features/tournaments/utils/tournamentHelpers'
+import { displayRegistrationCount, formatDateDisplay, formatTimeDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 
 const PlayerTournamentListPage = () => {
   const { tournaments, loading, error } = useTournamentStore()
@@ -62,6 +62,7 @@ const PlayerTournamentListPage = () => {
                 <h2 className="text-xl font-bold text-slate-900">{tournament.name}</h2>
                 <p className="mt-2 text-sm text-slate-600">📍 {tournament.venueName} · {formatDateDisplay(tournament.tournamentDate)}</p>
                 <p className="mt-2 text-sm text-slate-500">Registration closes {formatDateDisplay(tournament.registrationCloseDate)} at {formatTimeDisplay(tournament.registrationCloseTime)}</p>
+                <div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">👥 {displayRegistrationCount(tournament.registeredPlayerCount)} Players Registered</span>{tournament.categories.length > 0 && tournament.categories.every(category => category.eventType === 'DOUBLES') && displayRegistrationCount(tournament.registeredTeamCount) > 0 && <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">🏸 {displayRegistrationCount(tournament.registeredTeamCount)} Teams</span>}</div>
               </div>
               <div className="shrink-0">
                 <button

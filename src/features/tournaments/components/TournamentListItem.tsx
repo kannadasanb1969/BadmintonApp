@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Tournament, TournamentStatus } from '@/features/tournaments/types/tournament.types';
-import { getStatusLabel, formatDateDisplay, formatTimeDisplay } from '@/features/tournaments/utils/tournamentHelpers';
+import { displayRegistrationCount, getStatusLabel, formatDateDisplay, formatTimeDisplay } from '@/features/tournaments/utils/tournamentHelpers';
 
 interface TournamentListItemProps {
   tournament: Tournament;
@@ -8,6 +8,9 @@ interface TournamentListItemProps {
 
 const TournamentListItem = ({ tournament }: TournamentListItemProps) => {
   const { label, color } = getStatusLabel(tournament.status);
+  const registeredPlayers = displayRegistrationCount(tournament.registeredPlayerCount);
+  const registeredTeams = displayRegistrationCount(tournament.registeredTeamCount);
+  const isDoublesOnly = tournament.categories.length > 0 && tournament.categories.every(category => category.eventType === 'DOUBLES');
 
   return (
     <div className="border rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -49,6 +52,10 @@ const TournamentListItem = ({ tournament }: TournamentListItemProps) => {
         <div>
           <p className="font-medium mb-1">Status</p>
           <p>{label}</p>
+        </div>
+        <div>
+          <p className="font-medium mb-1">Registrations</p>
+          <div className="flex flex-wrap gap-2"><span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">👥 {registeredPlayers} Players Registered</span>{isDoublesOnly && registeredTeams > 0 && <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">🏸 {registeredTeams} Teams</span>}</div>
         </div>
       </div>
 

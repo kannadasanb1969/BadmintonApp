@@ -149,3 +149,7 @@ export const isTournamentEditable = (status: 'DRAFT' | 'PENDING_ADMIN_APPROVAL' 
 export const canSubmitForApproval = (status: 'DRAFT' | 'PENDING_ADMIN_APPROVAL' | 'APPROVED' | 'PUBLISHED' | 'REJECTED'): boolean => {
   return status === 'DRAFT' || status === 'REJECTED';
 };
+
+/** Converts an optional Worker count to a safe, display-only value. */
+export const displayRegistrationCount = (value?: number | null): number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
