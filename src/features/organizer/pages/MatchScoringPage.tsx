@@ -122,7 +122,7 @@ const MatchScoringPage = () => {
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
     return (
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'SCHEDULED' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -133,7 +133,7 @@ const MatchScoringPage = () => {
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
     return (
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'LIVE' &&
       isOrganizer
     )
@@ -143,7 +143,7 @@ const MatchScoringPage = () => {
   const canUndoScore = (match: FixtureMatch): boolean => {
     return (
       isExplicitMockApiMode &&
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'LIVE' &&
       match.scoreHistory &&
       match.scoreHistory.length > 0 &&
@@ -154,7 +154,7 @@ const MatchScoringPage = () => {
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
     return (
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'LIVE' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -170,7 +170,7 @@ const MatchScoringPage = () => {
   }
 
   const handleStartMatch = async () => {
-    if (!tournament) return
+    if (!tournament || !canStartMatch(match)) return
     setIsLoading(true)
     setErrorMessage(null)
     setSuccessMessage(null)

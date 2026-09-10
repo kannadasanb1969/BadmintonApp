@@ -328,7 +328,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
     return (
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'SCHEDULED' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
@@ -339,7 +339,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
     return (
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'LIVE' &&
       canManageFixture
     )
@@ -359,7 +359,7 @@ const CategoryFixturePage = () => {
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
     return (
-      (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
+      fixture?.status === 'PUBLISHED' &&
       match.status === 'LIVE' &&
       match.participant1 !== null &&
       match.participant2 !== null &&

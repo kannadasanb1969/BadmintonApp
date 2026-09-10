@@ -29,6 +29,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     void medalHistoryService.getMedals()
     const session = useAuthStore.getState()
     if (!session.user || !session.isAuthenticated) return
+    // Sessions created before token persistence cannot authenticate protected
+    // Worker mutations. They must re-enter through the OTP flow to obtain a
+    // real access token; never fabricate one from a user id.
+    if (!session.accessToken) {
+      session.logout()
+      return
+    }
     void notificationApiService.refresh(session.user.id)
 
     void getCurrentUser(session.user.id)
