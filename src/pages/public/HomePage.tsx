@@ -1,6 +1,7 @@
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate } from 'react-router-dom'
 import shuttlecockImage from '@/assets/shuttlecock.png'
+import smashPointLogo from '@/assets/mlogo.png'
 
 const HomePage = () => {
   const { user } = useAuthStore()
@@ -32,10 +33,7 @@ const HomePage = () => {
         <section className="home-content" aria-labelledby="home-title">
           <button className="home-skip" type="button" onClick={handleGoToDashboard}>Skip</button>
           <header className="home-brand" aria-label="SmashPoint">
-            <strong>SMASH</strong>
-            <span>POINT</span>
-            <b aria-hidden="true">➤</b>
-            <small>PLAY&nbsp; · &nbsp;CONNECT&nbsp; · &nbsp;COMPETE</small>
+            <img src={smashPointLogo} alt="SmashPoint" />
           </header>
           <div className="home-copy">
             <p className="home-kicker">THE COMMUNITY FOR EVERY GAME</p>
@@ -63,8 +61,7 @@ const HomePage = () => {
       <main className="home-hero home-hero-authenticated">
         <div className="home-hero-content">
           <header className="home-brand" aria-label="SmashPoint">
-            <strong>SMASH</strong>
-            <span>POINT<i /></span>
+            <img src={smashPointLogo} alt="SmashPoint" />
           </header>
           <section className="home-copy">
             <p className="home-kicker">Welcome back</p>
