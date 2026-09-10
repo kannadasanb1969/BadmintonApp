@@ -95,8 +95,8 @@ const CategoryFixturePage = () => {
     )
   }
 
-  // Check if current user is the organizer
-  const isOrganizer = currentUser?.role === 'ADMIN' || (currentUser?.id === tournament.organizerId && currentUser?.role === 'ORGANIZER')
+  // UI visibility follows the authenticated role and tournament ownership. Backend authorization remains authoritative.
+  const canManageFixture = currentUser?.role === 'ADMIN' || (currentUser?.role === 'ORGANIZER' && currentUser.id === tournament.organizerId)
   const finalMatch = fixture?.matches
     .filter(match => match.roundNumber === Math.max(...(fixture?.matches.map(item => item.roundNumber) ?? [0])))
     .find(match => match.status === 'COMPLETED' && match.winnerId)
@@ -110,7 +110,7 @@ const CategoryFixturePage = () => {
         ? 'At least 2 participants are required to generate fixtures.'
         : 'At least 2 teams are required to generate fixtures.'
       : null
-  const fixtureGenerationControl = !fixture && (
+  const fixtureGenerationControl = canManageFixture && !fixture && (
     <div className="mb-4">
       <button onClick={handleGenerateFixture} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50" disabled={isGenerating || !canGenerateFixture}>
         {isGenerating ? 'Generating...' : 'Generate Fixture'}
@@ -120,7 +120,7 @@ const CategoryFixturePage = () => {
   )
 
   const handleCloseRegistration = async () => {
-    if (!tournamentId || !categoryId || !currentUser || !isOrganizer || category.registrationPhase !== 'OPEN') return
+    if (!tournamentId || !categoryId || !currentUser || !canManageFixture || category.registrationPhase !== 'OPEN') return
     setIsClosingRegistration(true)
     setError(null)
     setSuccess(null)
@@ -142,7 +142,7 @@ const CategoryFixturePage = () => {
     }
   }
 
-  const registrationCloseControl = isOrganizer && category.registrationPhase === 'OPEN' && (
+  const registrationCloseControl = canManageFixture && category.registrationPhase === 'OPEN' && (
     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
       {!showCloseConfirmation ? (
         <button type="button" onClick={() => setShowCloseConfirmation(true)} disabled={isClosingRegistration} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Close Registration</button>
@@ -153,7 +153,7 @@ const CategoryFixturePage = () => {
   )
 
   async function handleGenerateFixture() {
-    if (!tournament || !currentUser) return
+    if (!tournament || !currentUser || !canManageFixture) return
     setIsGenerating(true)
     setError(null)
     try {
@@ -174,7 +174,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleReshuffleFixture = async () => {
-    if (!fixture || !currentUser) return
+    if (!fixture || !currentUser || !canManageFixture) return
     setIsReshuffling(true)
     setError(null)
     try {
@@ -192,7 +192,7 @@ const CategoryFixturePage = () => {
   }
 
   const handlePublishFixture = async () => {
-    if (!fixture || !currentUser) return
+    if (!fixture || !currentUser || !canManageFixture) return
     setIsPublishing(true)
     setError(null)
     try {
@@ -210,7 +210,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleStartMatch = async (matchId: string) => {
-    if (!tournament || !currentUser) return
+    if (!tournament || !currentUser || !canManageFixture) return
     setIsStartingMatch(matchId)
     setError(null)
     try {
@@ -248,7 +248,7 @@ const CategoryFixturePage = () => {
     side: 'PARTICIPANT_1' | 'PARTICIPANT_2',
     delta: 1 | -1
   ) => {
-    if (!tournament || !currentUser) return
+    if (!tournament || !currentUser || !canManageFixture) return
     setIsScoring({ matchId, side })
     setError(null)
     try {
@@ -276,7 +276,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleUndoScore = async (matchId: string) => {
-    if (!tournament || !currentUser) return
+    if (!tournament || !currentUser || !canManageFixture) return
     setIsUndoingScore(matchId)
     setError(null)
     try {
@@ -301,7 +301,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleCompleteMatch = async (matchId: string) => {
-    if (!tournament || !currentUser) return
+    if (!tournament || !currentUser || !canManageFixture) return
     setIsCompletingMatch(matchId)
     setError(null)
     try {
@@ -332,7 +332,7 @@ const CategoryFixturePage = () => {
       match.status === 'SCHEDULED' &&
       match.participant1 !== null &&
       match.participant2 !== null &&
-      isOrganizer
+      canManageFixture
     )
   }
 
@@ -341,7 +341,7 @@ const CategoryFixturePage = () => {
     return (
       (!isExplicitMockApiMode || fixture?.status === 'PUBLISHED') &&
       match.status === 'LIVE' &&
-      isOrganizer
+      canManageFixture
     )
   }
 
@@ -352,7 +352,7 @@ const CategoryFixturePage = () => {
       match.status === 'LIVE' &&
       match.scoreHistory &&
       match.scoreHistory.length > 0 &&
-      isOrganizer
+      canManageFixture
     )
   }
 
@@ -364,8 +364,14 @@ const CategoryFixturePage = () => {
       match.participant1 !== null &&
       match.participant2 !== null &&
       match.participant1Score !== match.participant2Score && // Not tied
-      isOrganizer
+      canManageFixture
     )
+  }
+
+  const participantLabel = (participant: FixtureMatch['participant1']) => {
+    if (!participant) return <span className="italic text-gray-500">BYE</span>
+    const code = participant.code && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(participant.code) ? participant.code : ''
+    return <span className="min-w-0 text-right"><span className="block break-words">{participant.name}</span>{code && <span className="block text-xs text-slate-500">{code}</span>}</span>
   }
 
   // Helper function to generate round sections for fixture display with scoring controls
@@ -406,13 +412,7 @@ const CategoryFixturePage = () => {
                 <div className="flex justify-between items-start mt-2">
                   <span className="font-medium text-gray-700">Participant 1:</span>
                   <span className="text-sm">
-                    {match.participant1 ? (
-                      <span>
-                        {match.participant1.name} ({match.participant1.code})
-                      </span>
-                    ) : (
-                      <span className="text-italic text-gray-500">BYE</span>
-                    )}
+{participantLabel(match.participant1)}
                   </span>
                 </div>
 
@@ -454,11 +454,11 @@ const CategoryFixturePage = () => {
                             -
                           </button>
                         </>
-                      ) : (
+                      ) : canManageFixture ? (
                         <span className="w-6 h-6 flex items-center justify-center bg-gray-200 rounded text-xs">
                           -
                         </span>
-                      )}
+                      ) : null}
                       <span className="text-sm font-mono">
                         {match.participant1Score}
                       </span>
@@ -474,11 +474,11 @@ const CategoryFixturePage = () => {
                             +
                           </button>
                         </>
-                      ) : (
+                      ) : canManageFixture ? (
                         <span className="w-6 h-6 flex items-center justify-center bg-gray-200 rounded text-xs">
                           +
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     {isScoring && isScoring.matchId === match.id && isScoring.side === 'PARTICIPANT_1' && (
                       <span className="text-xs text-blue-500">Updating...</span>
@@ -489,13 +489,7 @@ const CategoryFixturePage = () => {
                 <div className="flex justify-between items-start mt-2">
                   <span className="font-medium text-gray-700">Participant 2:</span>
                   <span className="text-sm">
-                    {match.participant2 ? (
-                      <span>
-                        {match.participant2.name} ({match.participant2.code})
-                      </span>
-                    ) : (
-                      <span className="text-italic text-gray-500">BYE</span>
-                    )}
+{participantLabel(match.participant2)}
                   </span>
                 </div>
 
@@ -524,11 +518,11 @@ const CategoryFixturePage = () => {
                             -
                           </button>
                         </>
-                      ) : (
+                      ) : canManageFixture ? (
                         <span className="w-6 h-6 flex items-center justify-center bg-gray-200 rounded text-xs">
                           -
                         </span>
-                      )}
+                      ) : null}
                       <span className="text-sm font-mono">
                         {match.participant2Score}
                       </span>
@@ -544,11 +538,11 @@ const CategoryFixturePage = () => {
                             +
                           </button>
                         </>
-                      ) : (
+                      ) : canManageFixture ? (
                         <span className="w-6 h-6 flex items-center justify-center bg-gray-200 rounded text-xs">
                           +
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     {isScoring && isScoring.matchId === match.id && isScoring.side === 'PARTICIPANT_2' && (
                       <span className="text-xs text-blue-500">Updating...</span>
@@ -683,7 +677,7 @@ const CategoryFixturePage = () => {
 
         {fixtureGenerationControl}
 
-        {fixture && fixture.status === 'DRAFT' && (
+        {canManageFixture && fixture && fixture.status === 'DRAFT' && (
           <div className="mb-4 space-x-3">
             <button
               onClick={handleReshuffleFixture}
@@ -774,7 +768,7 @@ const CategoryFixturePage = () => {
 
         {fixtureGenerationControl}
 
-        {fixture && fixture.status === 'DRAFT' && (
+        {canManageFixture && fixture && fixture.status === 'DRAFT' && (
           <div className="mb-4 space-x-3">
             <button
               onClick={handleReshuffleFixture}
