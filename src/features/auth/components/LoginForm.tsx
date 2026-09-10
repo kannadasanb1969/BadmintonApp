@@ -60,7 +60,7 @@ const LoginForm = () => {
     setLoading(true)
     try {
       const auth = await verifyOtpLogin(mobile, otp, role)
-      login(auth.user)
+      login(auth.user, auth.accessToken)
       if (auth.user.role === 'PLAYER') {
         const profile = auth.playerProfile ?? await getPlayerProfileForUser(auth.user)
         if (profile) usePlayerProfileStore.getState().createProfile(profile)
