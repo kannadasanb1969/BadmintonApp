@@ -20,6 +20,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 
 import { evaluatePlayerEligibility } from '@/features/eligibility/utils/eligibilityUtils'
 import { EligibilityResult } from '@/features/eligibility/types/eligibility.types'
+import { eligibilityService } from '@/features/eligibility/services/eligibilityService'
 
 const DoubleRegistrationConfirmationPage = () => {
   const {
@@ -88,7 +89,7 @@ const DoubleRegistrationConfirmationPage = () => {
   useEffect(() => {
     // Validate that we have the required data in the draft store
     if (!draftTournamentId || !draftCategoryId || !currentPlayerId) {
-      navigate('/player')
+      navigate(`/player/tournaments/${tournamentId}/doubles/${categoryId}/partner`, { replace: true })
       return
     }
 
@@ -113,10 +114,10 @@ const DoubleRegistrationConfirmationPage = () => {
 
   useEffect(() => {
     // Check current player eligibility when data changes
-    if (hasProfile && currentProfile && tournamentId && categoryId) {
+    if (hasProfile && currentProfile && tournamentId && categoryId && partnerId && partnerType) {
       void checkCurrentPlayerEligibility()
     }
-  }, [hasProfile, currentProfile, tournamentId, categoryId])
+  }, [hasProfile, currentProfile, tournamentId, categoryId, partnerId, partnerType])
 
   const checkCurrentPlayerEligibility = async () => {
     if (!tournamentId || !categoryId) return
@@ -134,24 +135,19 @@ const DoubleRegistrationConfirmationPage = () => {
 
       if (!hasProfile || !currentProfile) return
 
-      const tournamentRegistrations = registrationStore.getTournamentRegistrations(tournament.id)
-      const currentRegistrations = tournamentRegistrations.filter(
-        (reg) =>
-          reg.categoryId === categoryId &&
-          reg.status === 'REGISTERED'
-      ).length
+      const category = tournament.categories.find((item) => item.id === categoryId)
+      if (!category) throw new Error('Category not found')
 
-      const eligibility = evaluatePlayerEligibility(
-        currentProfile,
-        tournament,
-        tournament.categories.find(c => c.id === categoryId)!,
-        currentRegistrations
-      )
+      const eligibility = await eligibilityService.check({
+        tournamentId,
+        categoryId,
+        playerId: currentProfile.id,
+        partner: { id: partnerId!, type: partnerType === 'FULL' ? 'PLAYER' : 'GUEST' },
+      })
       setCurrentPlayerEligibility(eligibility.eligible)
       setCurrentPlayerRejectionReasons((eligibility.reasons ?? []).map(reason => reason.message))
       // Update eligibility in draft store
       setEligibility(eligibility.eligible, partnerEligibility)
-      // Clear error on successful check
       setError(null)
     } catch (err) {
       setCurrentPlayerEligibility(false)
@@ -229,12 +225,14 @@ const DoubleRegistrationConfirmationPage = () => {
         return
       }
 
-      const partnerEligibilityResult = evaluatePlayerEligibility(
-        partnerProfile,
-        tournament,
-        category,
-        currentRegistrations
-      )
+      const partnerEligibilityResult = partnerType === 'FULL'
+        ? await eligibilityService.check({
+            tournamentId,
+            categoryId,
+            playerId: partnerId,
+            partner: { id: currentProfile!.id, type: 'PLAYER' },
+          })
+        : evaluatePlayerEligibility(partnerProfile, tournament, category, currentRegistrations)
       setPartnerEligibility(partnerEligibilityResult.eligible)
       setPartnerRejectionReasons((partnerEligibilityResult.reasons ?? []).map(reason => reason.message))
       // Update eligibility in draft store
@@ -319,7 +317,7 @@ const DoubleRegistrationConfirmationPage = () => {
       }
 
       // Check partner status
-      if (partnerType === 'FULL' && partnerStatus !== 'ACCEPTED') {
+      if (partnerType === 'FULL' && !partnerAccepted) {
         throw new Error('Partner has not accepted the invitation')
       }
 
@@ -717,16 +715,16 @@ const DoubleRegistrationConfirmationPage = () => {
         </h3>
         <p className="text-sm text-gray-500">
           {partnerType === 'FULL'
-            ? partnerStatus === 'PENDING_CONFIRMATION'
-              ? 'Waiting for partner to accept'
-              : partnerStatus === 'ACCEPTED'
-                ? 'Partner has accepted'
+            ? partnerAccepted || partnerStatus === 'ACCEPTED'
+              ? 'Partner has accepted'
+              : partnerStatus === 'PENDING_CONFIRMATION'
+                ? 'Waiting for partner to accept'
                 : 'Unknown'
             : 'Guest partner (automatically accepted)'}
           </p>
       </div>
 
-      {showPartnerAcceptButton && !partnerAccepted && (
+      {showPartnerAcceptButton && !partnerAccepted && currentPlayerEligibility === true && partnerEligibility === true && (
         <div className="mb-6">
           <button
             type="button"
