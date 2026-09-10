@@ -587,12 +587,10 @@ const CategoryFixturePage = () => {
                 )}
 
                 {/* Winner Display */}
-                {match.winnerId && (
+                {match.status === 'COMPLETED' && (
                   <div className="flex justify-between items-start mt-2">
-                    <span className="font-medium text-gray-700">Winner:</span>
-                    <span className="text-sm font-semibold text-green-600">
-                      {match.participant1?.id === match.winnerId ? match.participant1?.name : match.participant2?.name}
-                    </span>
+                    <span className="font-medium text-gray-700">🏆 Winner:</span>
+                    <span className="text-right text-sm font-semibold text-green-600"><span className="block">{match.winnerParticipantName || 'Winner confirmed'}</span>{match.winnerParticipantName && match.winnerParticipantCode && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(match.winnerParticipantCode) && <span className="block text-xs font-normal text-slate-500">{match.winnerParticipantCode}</span>}</span>
                   </div>
                 )}
 
