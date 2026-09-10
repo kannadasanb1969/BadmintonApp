@@ -51,6 +51,8 @@ const PlayerTournamentDetailPage = () => {
 
   const [checkingEligibility, setCheckingEligibility] =
     useState<boolean>(false)
+  const [loadingRegistrations, setLoadingRegistrations] =
+    useState<boolean>(false)
 
   const [registrationStatus, setRegistrationStatus] = useState<
     Record<string, { success: boolean; message: string }>
@@ -65,6 +67,28 @@ const PlayerTournamentDetailPage = () => {
       void fetchTournamentById(tournamentId)
     }
   }, [tournamentId, fetchTournamentById])
+
+  useEffect(() => {
+    if (!hasProfile || !profile) {
+      setLoadingRegistrations(false)
+      return
+    }
+
+    let isCancelled = false
+    setLoadingRegistrations(true)
+
+    void registrationService.getPlayerRegistrations(profile.id)
+      .catch(() => {
+        // Eligibility remains the authoritative fallback if this refresh fails.
+      })
+      .finally(() => {
+        if (!isCancelled) setLoadingRegistrations(false)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [hasProfile, profile])
 
   useEffect(() => {
     if (!hasProfile || !profile) {
@@ -292,8 +316,8 @@ const PlayerTournamentDetailPage = () => {
       setRegistrationStatus((previous) => ({
         ...previous,
         [categoryId]: {
-          success: false,
-          message: 'You are already registered for this category',
+          success: true,
+          message: 'You are already participating in this category',
         },
       }))
 
@@ -536,6 +560,9 @@ const PlayerTournamentDetailPage = () => {
                     registration.categoryId === category.id &&
                     registration.status === 'REGISTERED'
                 )
+              const hasActiveRegistration = isRegistered || Boolean(
+                eligibility?.reasons.some((reason) => reason.code === 'ALREADY_REGISTERED')
+              )
 
               const regStatus =
                 registrationStatus[category.id]
@@ -765,6 +792,16 @@ const PlayerTournamentDetailPage = () => {
                   )}
 
                   <div className="player-eligibility-panel">
+                    {hasActiveRegistration ? (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                        <p className="player-registered">✓ Already Registered</p>
+                        <p className="text-sm text-emerald-800">You are already participating in this category.</p>
+                        <button type="button" onClick={() => navigate('/player/registrations')} className="mt-3 text-sm font-bold text-emerald-700 hover:text-emerald-900">View My Entry</button>
+                      </div>
+                    ) : loadingRegistrations ? (
+                      <p className="text-sm text-gray-500">Checking your registration...</p>
+                    ) : (
+                      <>
                     {category.registrationPhase === 'CLOSED' && <p className="player-ineligible">Registration Closed</p>}
                     {eligibility ? (
                       eligibility.eligible ? (
@@ -822,11 +859,6 @@ const PlayerTournamentDetailPage = () => {
                                   </button>
                                 )}
 
-                              {isRegistered && (
-                                <p className="player-registered">
-                                  ✓ Already registered
-                                </p>
-                              )}
                             </>
                           )}
                         </>
@@ -855,6 +887,8 @@ const PlayerTournamentDetailPage = () => {
                           ? 'Checking eligibility...'
                           : 'Eligibility unavailable'}
                       </p>
+                    )}
+                      </>
                     )}
 
                     {regStatus && (
