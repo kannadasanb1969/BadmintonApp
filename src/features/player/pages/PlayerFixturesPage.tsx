@@ -23,7 +23,7 @@ const PlayerFixturesPage = () => {
     if (!profile) return []
     const playerRegistrations = registrations.filter(registration => registration.playerId === profile.id && registration.status === 'REGISTERED')
     const playerTeams = teams.filter(team => team.status === 'CONFIRMED' && (team.player1Id === profile.id || team.player2Id === profile.id))
-    return fixtures.filter(fixture => playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId))
+    return fixtures.filter(fixture => fixture.status === 'PUBLISHED' && (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
   }, [fixtures, profile, registrations, teams])
 
   if (!profile) return <div className="rounded-2xl bg-white p-8 text-center shadow-sm"><p className="text-lg font-bold">Complete your profile to view fixtures.</p><button onClick={() => navigate('/player/profile')} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Complete profile</button></div>
