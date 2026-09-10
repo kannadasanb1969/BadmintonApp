@@ -330,15 +330,13 @@ const TournamentForm = ({
       // Clear any existing form errors
       clearErrors();
 
-      // Submit for approval
-      await tournamentService.submitTournamentForApproval(tournamentId);
+      if (!tournamentId) throw new Error('Save the tournament as a draft before submitting it for approval')
 
-      // Refetch the tournament to update status
-      const updated = await tournamentService.getTournamentById(tournamentId);
-      if (updated) {
-        if (onSubmitForApprovalSuccess) {
-          onSubmitForApprovalSuccess(updated);
-        }
+      // The service returns the Worker-refreshed tournament after its status
+      // transition, so the detail route receives the current approval state.
+      const updated = await tournamentService.submitTournamentForApproval(tournamentId);
+      if (onSubmitForApprovalSuccess) {
+        onSubmitForApprovalSuccess(updated);
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit tournament for approval';
@@ -618,14 +616,14 @@ const TournamentForm = ({
             {isSubmitting || loading ? 'Saving...' : isEditMode ? 'Update Tournament' : 'Create Tournament'}
           </button>
 
-          <button
-            type="button"
-            onClick={onSubmitForApproval}
-            disabled={isSubmitting || loading}
-            className={`w-auto px-6 py-3 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
-          >
-            {isSubmitting || loading ? 'Submitting...' : 'Submit for Approval'}
-          </button>
+          {isEditMode && <button
+              type="button"
+              onClick={onSubmitForApproval}
+              disabled={isSubmitting || loading}
+              className={`w-auto px-6 py-3 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
+            >
+              {isSubmitting || loading ? 'Submitting...' : 'Submit for Approval'}
+            </button>}
 
           {submitError && (
             <p className="mt-2 text-sm text-red-600 w-full text-center">

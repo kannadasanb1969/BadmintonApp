@@ -147,5 +147,5 @@ export const isTournamentEditable = (status: 'DRAFT' | 'PENDING_ADMIN_APPROVAL' 
  * Check if tournament can be submitted for approval (only draft tournaments)
  */
 export const canSubmitForApproval = (status: 'DRAFT' | 'PENDING_ADMIN_APPROVAL' | 'APPROVED' | 'PUBLISHED' | 'REJECTED'): boolean => {
-  return status === 'DRAFT';
+  return status === 'DRAFT' || status === 'REJECTED';
 };

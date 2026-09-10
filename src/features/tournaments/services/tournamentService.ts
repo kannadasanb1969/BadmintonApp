@@ -120,8 +120,11 @@ export const tournamentService = {
   submitTournamentForApproval: async (id: string): Promise<Tournament> => {
     if (!isExplicitMockApiMode) {
       const organizer = currentActor('ORGANIZER')
-      const tournament = fromWorkerTournament((await apiClient.post<WorkerTournament>(`/api/tournaments/${id}/submit`, { organizerId: organizer.id })).data)
-      cacheTournament(tournament)
+      await apiClient.post(`/api/tournaments/${id}/submit`, { organizerId: organizer.id })
+      // Use the post-transition GET as the source of truth. A workflow route
+      // can acknowledge success before returning a fully refreshed record.
+      const tournament = await tournamentService.getTournamentById(id)
+      if (!tournament) throw new Error('Tournament was not found after submission')
       return tournament
     }
     const tournament = useTournamentStore.getState().submitTournamentForApproval(id)
