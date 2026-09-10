@@ -38,7 +38,7 @@ const fromWorkerFixture = async (raw: WorkerFixture): Promise<Fixture> => {
   return {
     ...raw,
     tournamentCode: tournament?.tournamentCode ?? raw.tournamentId,
-    categoryName: category?.eventType ?? raw.categoryId,
+    categoryName: category?.name ?? raw.categoryId,
     format: raw.format === 'ROUND_ROBIN' ? 'LEAGUE' : raw.format === 'LEAGUE' ? 'LEAGUE' : 'KNOCKOUT',
     participants,
     matches: (Array.isArray(raw.matches) ? raw.matches : []).map((match) => ({ ...match, participant1: match.participant1Id ? participant.get(match.participant1Id) ?? null : null, participant2: match.participant2Id ? participant.get(match.participant2Id) ?? null : null })),

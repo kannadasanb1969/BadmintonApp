@@ -462,8 +462,8 @@ const TournamentForm = ({
 
         {/* Tournament Format */}
         <section className="form-panel space-y-4">
-          <div className="form-panel-heading"><span>04</span><div><h3>Match format</h3><p>Choose the draw format and event type.</p></div></div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="form-panel-heading"><span>04</span><div><h3>Match format</h3><p>Choose how the tournament draw will run.</p></div></div>
+          <div>
             <div><label className="mb-2 block text-sm font-medium">Format</label>
             <select
               {...register('format')}
@@ -474,14 +474,12 @@ const TournamentForm = ({
               <option value="LEAGUE_KNOCKOUT">League + Knockout</option>
             </select>
             </div>
-            <div><label className="mb-2 block text-sm font-medium">Event Type</label><select {...register('categories.0.eventType')} className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="SINGLES">Singles</option><option value="DOUBLES">Doubles</option></select></div>
-            <div><label className="mb-2 block text-sm font-medium">Player eligibility</label><select {...register('categories.0.genderEligibility')} className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="OPEN">Open to all</option><option value="WOMEN_ONLY">Women only</option><option value="MEN_ONLY">Men only</option></select></div>
           </div>
         </section>
 
         {/* Categories */}
         <section className="form-panel space-y-4">
-          <div className="form-panel-heading"><span>05</span><div><h3>Eligibility rules</h3><p>Choose which players can join this event.</p></div></div>
+          <div className="form-panel-heading"><span>05</span><div><h3>Event categories & eligibility</h3><p>Name each event, choose its type, and set player eligibility.</p></div></div>
           <div id="categories-container" className="space-y-3">
             {categories.map((category, index) => (
               <div key={index} className="border rounded p-4 bg-gray-50">
@@ -502,6 +500,32 @@ const TournamentForm = ({
                     {errors.categories?.[index]?.name && (
                       <p className="mt-1 text-sm text-red-600">{errors.categories[index]?.name?.message}</p>
                     )}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor={`category-event-type-${index}`} className="mb-2 block text-sm font-medium">
+                        Event Type <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        id={`category-event-type-${index}`}
+                        {...register(`categories.${index}.eventType`, {
+                          required: 'Event Type is required',
+                          validate: (value) => value === 'SINGLES' || value === 'DOUBLES' || "Event Type must be 'SINGLES' or 'DOUBLES'",
+                        })}
+                        className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="SINGLES">Singles</option>
+                        <option value="DOUBLES">Doubles</option>
+                      </select>
+                      {errors.categories?.[index]?.eventType && (
+                        <p className="mt-1 text-sm text-red-600">{errors.categories[index]?.eventType?.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor={`category-gender-eligibility-${index}`} className="mb-2 block text-sm font-medium">Player eligibility</label>
+                      <select id={`category-gender-eligibility-${index}`} {...register(`categories.${index}.genderEligibility`)} className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="OPEN">Open to all</option><option value="WOMEN_ONLY">Women only</option><option value="MEN_ONLY">Men only</option></select>
+                    </div>
                   </div>
 
                   <div className="flex items-center space-x-2">

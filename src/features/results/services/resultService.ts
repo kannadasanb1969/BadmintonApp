@@ -23,7 +23,7 @@ const fromWorker = async (raw: WorkerResult): Promise<CategoryResult> => {
   const category = tournament?.categories.find((item) => item.id === raw.categoryId)
   const winner = await participant(raw.winnerParticipantId, raw.winnerParticipantType)
   const runnerUp = await participant(raw.runnerUpParticipantId, raw.runnerUpParticipantType)
-  return { ...raw, tournamentCode: tournament?.tournamentCode ?? raw.tournamentId, tournamentName: tournament?.name ?? raw.tournamentId, categoryName: category?.eventType ?? raw.categoryId, winnerParticipantCode: winner.code, winnerParticipantName: winner.name, runnerUpParticipantCode: runnerUp.code, runnerUpParticipantName: runnerUp.name }
+  return { ...raw, tournamentCode: tournament?.tournamentCode ?? raw.tournamentId, tournamentName: tournament?.name ?? raw.tournamentId, categoryName: category?.name ?? raw.categoryId, winnerParticipantCode: winner.code, winnerParticipantName: winner.name, runnerUpParticipantCode: runnerUp.code, runnerUpParticipantName: runnerUp.name }
 }
 
 const cache = (results: CategoryResult[]) => useResultStore.getState().replaceResults(results)
