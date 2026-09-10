@@ -487,9 +487,25 @@ const TournamentForm = ({
           <div id="categories-container" className="space-y-3">
             {categories.map((category, index) => (
               <div key={index} className="border rounded p-4 bg-gray-50">
-                <input type="hidden" {...register(`categories.${index}.name`)} value={category.eventType === 'DOUBLES' ? 'Doubles' : 'Singles'} />
-
                 <div className="space-y-3">
+                  <div>
+                    <label htmlFor={`category-name-${index}`} className="mb-2 block text-sm font-medium">
+                      Category Name <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      id={`category-name-${index}`}
+                      {...register(`categories.${index}.name`, {
+                        required: 'Category name is required',
+                      })}
+                      type="text"
+                      className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={category.eventType === 'DOUBLES' ? "e.g., Men's Doubles" : "e.g., Men's Singles"}
+                    />
+                    {errors.categories?.[index]?.name && (
+                      <p className="mt-1 text-sm text-red-600">{errors.categories[index]?.name?.message}</p>
+                    )}
+                  </div>
+
                   <div className="flex items-center space-x-2">
                     <input
                       {...register(`categories.${index}.medalistsAllowed`)}
