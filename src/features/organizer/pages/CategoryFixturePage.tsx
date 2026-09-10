@@ -3,8 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
 import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
-import { useTeamStore } from '@/features/teams/store/teamStore'
-import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useAuthStore } from '@/store/authStore'
 
 import { TournamentCategory } from '@/features/tournaments/types/tournament.types'
@@ -16,6 +14,8 @@ import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 import { isExplicitMockApiMode } from '@/api/apiClient'
+import { registrationService } from '@/features/registrations/services/registrationService'
+import { teamService } from '@/features/teams/services/teamService'
 
 const CategoryFixturePage = () => {
   const { tournamentId, categoryId } = useParams<{ tournamentId: string; categoryId: string }>()
@@ -42,6 +42,7 @@ const CategoryFixturePage = () => {
   const [isScoring, setIsScoring] = useState<{ matchId: string; side: 'PARTICIPANT_1' | 'PARTICIPANT_2' } | null>(null)
   const [isUndoingScore, setIsUndoingScore] = useState<string | false>(false) // matchId or false
   const [isCompletingMatch, setIsCompletingMatch] = useState<string | false>(false) // matchId or false
+  const [entryCount, setEntryCount] = useState(0)
 
   useEffect(() => {
     // Fetch tournament and category if not already loaded
@@ -57,6 +58,10 @@ const CategoryFixturePage = () => {
           const cat = updatedTournament.categories.find(c => c.id === categoryId)
           if (cat) {
             setCategory(cat)
+            const entries = cat.eventType === 'SINGLES'
+              ? (await registrationService.getTournamentRegistrations(tournamentId)).filter(item => item.categoryId === categoryId && item.status === 'REGISTERED')
+              : (await teamService.getCategoryTeams(tournamentId, categoryId)).filter(item => item.status === 'CONFIRMED')
+            setEntryCount(entries.length)
           }
         }
 
@@ -104,8 +109,24 @@ const CategoryFixturePage = () => {
     .find(match => match.status === 'COMPLETED' && match.winnerId)
   const champion = finalMatch ? (finalMatch.participant1?.id === finalMatch.winnerId ? finalMatch.participant1 : finalMatch.participant2) : undefined
   const runnerUp = finalMatch ? (finalMatch.participant1?.id === finalMatch.winnerId ? finalMatch.participant2 : finalMatch.participant1) : undefined
+  const canGenerateFixture = category.registrationPhase === 'CLOSED' && entryCount >= 2
+  const generationMessage = category.registrationPhase === 'OPEN'
+    ? 'Close registration before generating fixtures.'
+    : entryCount < 2
+      ? category.eventType === 'SINGLES'
+        ? 'At least 2 participants are required to generate fixtures.'
+        : 'At least 2 teams are required to generate fixtures.'
+      : null
+  const fixtureGenerationControl = !fixture && (
+    <div className="mb-4">
+      <button onClick={handleGenerateFixture} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50" disabled={isGenerating || !canGenerateFixture}>
+        {isGenerating ? 'Generating...' : 'Generate Fixture'}
+      </button>
+      {generationMessage && <p className="mt-2 text-sm text-amber-700">{generationMessage}</p>}
+    </div>
+  )
 
-  const handleGenerateFixture = async () => {
+  async function handleGenerateFixture() {
     if (!tournament || !currentUser) return
     setIsGenerating(true)
     setError(null)
@@ -632,17 +653,7 @@ const CategoryFixturePage = () => {
         </div>
         {champion && runnerUp && <div className="mb-6 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-amber-200">🏆 Winner</p><p className="mt-1 text-lg font-black text-white">{champion.name}</p></div><div className="rounded-2xl border border-slate-300/30 bg-white/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-300">🥈 Runner-up</p><p className="mt-1 text-lg font-black text-white">{runnerUp.name}</p></div></div>}
 
-        {!fixture && category.registrationPhase === 'CLOSED' && (
-          <div className="mb-4">
-            <button
-              onClick={handleGenerateFixture}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-              disabled={isGenerating}
-            >
-              {isGenerating ? 'Generating...' : 'Generate Fixture'}
-            </button>
-          </div>
-        )}
+        {fixtureGenerationControl}
 
         {fixture && fixture.status === 'DRAFT' && (
           <div className="mb-4 space-x-3">
@@ -731,17 +742,7 @@ const CategoryFixturePage = () => {
         </div>
         {champion && runnerUp && <div className="mb-6 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-amber-200">🏆 Winner</p><p className="mt-1 text-lg font-black text-white">{champion.name}</p></div><div className="rounded-2xl border border-slate-300/30 bg-white/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-300">🥈 Runner-up</p><p className="mt-1 text-lg font-black text-white">{runnerUp.name}</p></div></div>}
 
-        {!fixture && category.registrationPhase === 'CLOSED' && (
-          <div className="mb-4">
-            <button
-              onClick={handleGenerateFixture}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-              disabled={isGenerating}
-            >
-              {isGenerating ? 'Generating...' : 'Generate Fixture'}
-            </button>
-          </div>
-        )}
+        {fixtureGenerationControl}
 
         {fixture && fixture.status === 'DRAFT' && (
           <div className="mb-4 space-x-3">

@@ -305,6 +305,9 @@ const DoubleRegistrationConfirmationPage = () => {
       if (category.eventType !== 'DOUBLES') {
         throw new Error('Invalid category type for doubles registration')
       }
+      if (category.registrationPhase === 'CLOSED') {
+        throw new Error('Registration Closed')
+      }
 
       // Check registration open
       const now = new Date()

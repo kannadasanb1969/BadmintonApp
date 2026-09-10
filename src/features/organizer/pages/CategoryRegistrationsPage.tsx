@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
-import { useTeamStore } from '@/features/teams/store/teamStore'
-import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
-import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
 import { useAuthStore } from '@/store/authStore'
+import { registrationService } from '@/features/registrations/services/registrationService'
+import { teamService } from '@/features/teams/services/teamService'
+import { fixtureService } from '@/features/fixtures/services/fixtureService'
 
-import { TournamentCategory, RegistrationPhase } from '@/features/tournaments/types/tournament.types'
+import { TournamentCategory } from '@/features/tournaments/types/tournament.types'
 import { Team } from '@/features/teams/types/team.types'
 import { Registration } from '@/features/registrations/types/registration.types'
 import { Fixture } from '@/features/fixtures/types/fixture.types'
@@ -50,27 +50,20 @@ const CategoryRegistrationsPage = () => {
           const cat = updatedTournament.categories.find(c => c.id === categoryId)
           if (cat) {
             setCategory(cat)
-          }
-        }
-
-        // Load registrations or teams based on event type
-        if (category) {
-          if (category.eventType === 'SINGLES') {
-            const regStore = useRegistrationStore.getState()
-            const regs = regStore.getTournamentRegistrations(tournamentId)
-              .filter(reg => reg.categoryId === categoryId && reg.status === 'REGISTERED')
-            setRegistrations(regs)
-          } else if (category.eventType === 'DOUBLES') {
-            const teamStore = useTeamStore.getState()
-            const confirmedTeams = teamStore.getCategoryTeams(tournamentId, categoryId)
-              .filter(team => team.status === 'CONFIRMED')
-            setTeams(confirmedTeams)
+            if (cat.eventType === 'SINGLES') {
+              const regs = (await registrationService.getTournamentRegistrations(tournamentId))
+                .filter(reg => reg.categoryId === categoryId && reg.status === 'REGISTERED')
+              setRegistrations(regs)
+            } else {
+              const confirmedTeams = (await teamService.getCategoryTeams(tournamentId, categoryId))
+                .filter(team => team.status === 'CONFIRMED')
+              setTeams(confirmedTeams)
+            }
           }
         }
 
         // Load fixture for this tournament and category
-        const fixtureStore = useFixtureStore.getState()
-        const existingFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
+        const existingFixture = (await fixtureService.getFixtures()).find(item => item.tournamentId === tournamentId && item.categoryId === categoryId)
         if (existingFixture) {
           setFixture(existingFixture)
         }
@@ -131,6 +124,7 @@ const CategoryRegistrationsPage = () => {
         tournamentId,
         categoryId
       )
+      await useTournamentStore.getState().fetchTournamentById(tournamentId)
       setSuccessMessage('Registration closed successfully')
       // Refetch the category to update the UI
       const updatedTournament = useTournamentStore.getState().tournament
@@ -171,6 +165,9 @@ const CategoryRegistrationsPage = () => {
   const handleCancelClose = () => {
     setShowConfirmClose(false)
   }
+
+  const entryCount = category.eventType === 'SINGLES' ? registrations.length : teams.length
+  const entryLabel = category.eventType === 'SINGLES' ? 'registered players' : 'registered teams'
 
   if (category.eventType === 'SINGLES') {
     return (
@@ -219,7 +216,7 @@ const CategoryRegistrationsPage = () => {
               {showConfirmClose && (
                 <div className="mt-4 space-y-3">
                   <p className="text-sm text-gray-600">
-                    Are you sure you want to close registration for this category?
+                    Close registration with {entryCount} {entryLabel}? New registrations will no longer be accepted.
                   </p>
                   <div className="flex space-x-3">
                     <button
@@ -239,7 +236,7 @@ const CategoryRegistrationsPage = () => {
               )}
             </>
           ) : (
-            <div className="flex flex-wrap items-center gap-3"><span className="text-red-600">Closed</span>{!fixture && <button onClick={handleReopen} disabled={isLoading} className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">Reopen Registration</button>}</div>
+            <div className="flex flex-wrap items-center gap-3"><span className="text-red-600">Registration Closed</span>{!fixture && <button onClick={handleReopen} disabled={isLoading} className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">Reopen Registration</button>}</div>
           )}
         </div>
 
@@ -382,7 +379,7 @@ const CategoryRegistrationsPage = () => {
               {showConfirmClose && (
                 <div className="mt-4 space-y-3">
                   <p className="text-sm text-gray-600">
-                    Are you sure you want to close registration for this category?
+                    Close registration with {entryCount} {entryLabel}? New registrations will no longer be accepted.
                   </p>
                   <div className="flex space-x-3">
                     <button
@@ -402,7 +399,7 @@ const CategoryRegistrationsPage = () => {
               )}
             </>
           ) : (
-            <span className="text-red-600">Closed</span>
+            <span className="text-red-600">Registration Closed</span>
           )}
         </div>
 
