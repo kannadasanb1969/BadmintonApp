@@ -62,9 +62,22 @@ const workerMatch = (raw: WorkerMatch): FixtureMatch => {
   return { ...existing, ...raw, participant1: findParticipant(raw.participant1Id) ?? existing?.participant1 ?? null, participant2: findParticipant(raw.participant2Id) ?? existing?.participant2 ?? null } as FixtureMatch;
 };
 
+const cacheWorkerMatch = (match: FixtureMatch): FixtureMatch => {
+  const fixtureStore = useFixtureStore.getState();
+  const fixture = fixtureStore.getFixtureById(match.fixtureId);
+  if (!fixture) return match;
+
+  const matches = fixture.matches.map((existing) => (
+    existing.id === match.id ? { ...existing, ...match } : existing
+  ));
+  fixtureStore.saveGeneratedFixture({ ...fixture, matches, updatedAt: new Date().toISOString() });
+  return matches.find((item) => item.id === match.id) ?? match;
+};
+
 const syncWorkerMatch = async (raw: WorkerMatch): Promise<FixtureMatch> => {
-  const fixture = await fixtureService.getFixture(raw.fixtureId);
-  return fixture?.matches.find((item) => item.id === raw.id) ?? workerMatch(raw);
+  // The mutation response is the authoritative, post-update score. Do not wait
+  // for a separate fixture read that can repopulate the cache with older data.
+  return cacheWorkerMatch(workerMatch(raw));
 };
 
 export const matchService: MatchService = {

@@ -181,12 +181,12 @@ const MatchScoringPage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the started match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-        setMatch(currentFixture.matches.find(m => m.id === matchId))
+      if (updatedMatch) {
+        setMatch(updatedMatch)
+        setFixture((current) => current ? {
+          ...current,
+          matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+        } : current)
       }
       setSuccessMessage('Match started successfully')
     } catch (err) {
@@ -213,12 +213,12 @@ const MatchScoringPage = () => {
         side,
         delta
       )
-      // Update fixture with the updated match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-        setMatch(currentFixture.matches.find(m => m.id === matchId))
+      if (updatedMatch) {
+        setMatch(updatedMatch)
+        setFixture((current) => current ? {
+          ...current,
+          matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+        } : current)
       }
       // Clear scoring state after successful update
     } catch (err) {
@@ -267,12 +267,12 @@ const MatchScoringPage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the completed match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-        setMatch(currentFixture.matches.find(m => m.id === matchId))
+      if (updatedMatch) {
+        setMatch(updatedMatch)
+        setFixture((current) => current ? {
+          ...current,
+          matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+        } : current)
       }
       setSuccessMessage('Match completed successfully')
     } catch (err) {
@@ -461,8 +461,8 @@ const MatchScoringPage = () => {
 
           {/* Participant 2 Score Controls */}
           <div className="flex justify-between items-start mt-4">
-            {canScoreMatch(match) && !match.participant1Score && !match.participant2Score ? (
-              // Already handled in P1 section, just show scores
+            {!canScoreMatch(match) ? (
+              // Scheduled and completed matches remain read-only.
               <div className="flex justify-between items-start">
                 <span className="font-medium text-gray-700">P2 Score:</span>
                 <span className="text-sm">
@@ -566,12 +566,10 @@ const MatchScoringPage = () => {
             )}
 
             {/* Winner Display */}
-            {match.winnerId && (
+            {match.status === 'COMPLETED' && (
               <div className="flex justify-between items-start mt-4">
-                <span className="font-medium text-gray-700">Winner:</span>
-                <span className="text-sm font-semibold text-green-600">
-                  {match.participant1?.id === match.winnerId ? match.participant1?.name : match.participant2?.name}
-                </span>
+                <span className="font-medium text-gray-700">🏆 Winner:</span>
+                <span className="text-right text-sm font-semibold text-green-600"><span className="block">{match.winnerParticipantName || 'Winner confirmed'}</span>{match.winnerParticipantName && match.winnerParticipantCode && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(match.winnerParticipantCode) && <span className="block text-xs font-normal text-slate-500">{match.winnerParticipantCode}</span>}</span>
               </div>
             )}
 

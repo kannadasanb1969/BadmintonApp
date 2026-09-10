@@ -6,7 +6,6 @@ import { usePlayerProfileStore } from '@/features/player/store/playerProfileStor
 import { useGuestPlayerStore } from '@/features/player/store/guestPlayerStore'
 import { usePlayerDirectoryStore } from '@/features/player/store/playerDirectoryStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
-import { useTeamStore } from '@/features/teams/store/teamStore'
 import { useDoublesRegistrationDraftStore } from '@/features/teams/store/doublesRegistrationDraftStore'
 
 import { registrationService } from '@/features/registrations/services/registrationService'
@@ -20,6 +19,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 
 import { evaluatePlayerEligibility } from '@/features/eligibility/utils/eligibilityUtils'
 import { EligibilityResult } from '@/features/eligibility/types/eligibility.types'
+import { eligibilityService } from '@/features/eligibility/services/eligibilityService'
 
 const DoubleRegistrationConfirmationPage = () => {
   const {
@@ -51,10 +51,6 @@ const DoubleRegistrationConfirmationPage = () => {
   } = useRegistrationStore()
 
   const {
-    teams: allTeams,
-  } = useTeamStore()
-
-  const {
     tournamentId: draftTournamentId,
     categoryId: draftCategoryId,
     currentPlayerId,
@@ -70,7 +66,6 @@ const DoubleRegistrationConfirmationPage = () => {
   // Store selectors for use in event handlers (must be at top level)
   const tournamentStore = useTournamentStore(state => state)
   const registrationStore = useRegistrationStore(state => state)
-  const teamStore = useTeamStore(state => state)
   const playerDirectoryStore = usePlayerDirectoryStore(state => state)
   const guestPlayerStore = useGuestPlayerStore(state => state)
 
@@ -83,11 +78,12 @@ const DoubleRegistrationConfirmationPage = () => {
   const [partnerEligibility, setPartnerEligibility] = useState<boolean | null>(null)
   const [currentPlayerRejectionReasons, setCurrentPlayerRejectionReasons] = useState<string[]>([])
   const [partnerRejectionReasons, setPartnerRejectionReasons] = useState<string[]>([])
+  const [loadingCategoryPhase, setLoadingCategoryPhase] = useState(true)
 
   useEffect(() => {
     // Validate that we have the required data in the draft store
     if (!draftTournamentId || !draftCategoryId || !currentPlayerId) {
-      navigate('/player')
+      navigate(`/player/tournaments/${tournamentId}/doubles/${categoryId}/partner`, { replace: true })
       return
     }
 
@@ -97,11 +93,13 @@ const DoubleRegistrationConfirmationPage = () => {
   }, [draftTournamentId, draftCategoryId, currentPlayerId, tournamentId, categoryId, navigate])
 
   useEffect(() => {
-    // Fetch tournament if not already loaded
+    // Always load the route's current category phase before confirmation.
     if (tournamentId && categoryId) {
       const fetchTournament = async () => {
-        if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
+        try {
           await tournamentStore.fetchTournamentById(tournamentId)
+        } finally {
+          setLoadingCategoryPhase(false)
         }
       }
       fetchTournament()
@@ -110,10 +108,10 @@ const DoubleRegistrationConfirmationPage = () => {
 
   useEffect(() => {
     // Check current player eligibility when data changes
-    if (hasProfile && currentProfile && tournamentId && categoryId) {
+    if (hasProfile && currentProfile && tournamentId && categoryId && partnerId && partnerType) {
       void checkCurrentPlayerEligibility()
     }
-  }, [hasProfile, currentProfile, tournamentId, categoryId])
+  }, [hasProfile, currentProfile, tournamentId, categoryId, partnerId, partnerType])
 
   const checkCurrentPlayerEligibility = async () => {
     if (!tournamentId || !categoryId) return
@@ -124,33 +122,26 @@ const DoubleRegistrationConfirmationPage = () => {
     setError(null)
 
     try {
-      if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
-        await tournamentStore.fetchTournamentById(tournamentId)
-      }
+      await tournamentStore.fetchTournamentById(tournamentId)
 
       const tournament = tournamentStore.tournament
       if (!tournament) return
 
       if (!hasProfile || !currentProfile) return
 
-      const tournamentRegistrations = registrationStore.getTournamentRegistrations(tournament.id)
-      const currentRegistrations = tournamentRegistrations.filter(
-        (reg) =>
-          reg.categoryId === categoryId &&
-          reg.status === 'REGISTERED'
-      ).length
+      const category = tournament.categories.find((item) => item.id === categoryId)
+      if (!category) throw new Error('Category not found')
 
-      const eligibility = evaluatePlayerEligibility(
-        currentProfile,
-        tournament,
-        tournament.categories.find(c => c.id === categoryId)!,
-        currentRegistrations
-      )
+      const eligibility = await eligibilityService.check({
+        tournamentId,
+        categoryId,
+        playerId: currentProfile.id,
+        partner: { id: partnerId!, type: partnerType === 'FULL' ? 'PLAYER' : 'GUEST' },
+      })
       setCurrentPlayerEligibility(eligibility.eligible)
       setCurrentPlayerRejectionReasons((eligibility.reasons ?? []).map(reason => reason.message))
       // Update eligibility in draft store
       setEligibility(eligibility.eligible, partnerEligibility)
-      // Clear error on successful check
       setError(null)
     } catch (err) {
       setCurrentPlayerEligibility(false)
@@ -167,9 +158,7 @@ const DoubleRegistrationConfirmationPage = () => {
     setError(null)
 
     try {
-      if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
-        await tournamentStore.fetchTournamentById(tournamentId)
-      }
+      await tournamentStore.fetchTournamentById(tournamentId)
 
       const tournament = tournamentStore.tournament
       if (!tournament) return
@@ -230,12 +219,14 @@ const DoubleRegistrationConfirmationPage = () => {
         return
       }
 
-      const partnerEligibilityResult = evaluatePlayerEligibility(
-        partnerProfile,
-        tournament,
-        category,
-        currentRegistrations
-      )
+      const partnerEligibilityResult = partnerType === 'FULL'
+        ? await eligibilityService.check({
+            tournamentId,
+            categoryId,
+            playerId: partnerId,
+            partner: { id: currentProfile!.id, type: 'PLAYER' },
+          })
+        : evaluatePlayerEligibility(partnerProfile, tournament, category, currentRegistrations)
       setPartnerEligibility(partnerEligibilityResult.eligible)
       setPartnerRejectionReasons((partnerEligibilityResult.reasons ?? []).map(reason => reason.message))
       // Update eligibility in draft store
@@ -309,15 +300,6 @@ const DoubleRegistrationConfirmationPage = () => {
         throw new Error('Registration Closed')
       }
 
-      // Check registration open
-      const now = new Date()
-      const closeDate = new Date(tournament.registrationCloseDate)
-      const closeTime = tournament.registrationCloseTime.split(':')
-      closeDate.setHours(parseInt(closeTime[0]), parseInt(closeTime[1]), 0, 0)
-      if (now >= closeDate) {
-        throw new Error('Registration is closed')
-      }
-
       // Check current player eligibility
       if (currentPlayerEligibility === false) {
         throw new Error('You are not eligible for this category')
@@ -329,7 +311,7 @@ const DoubleRegistrationConfirmationPage = () => {
       }
 
       // Check partner status
-      if (partnerType === 'FULL' && partnerStatus !== 'ACCEPTED') {
+      if (partnerType === 'FULL' && !partnerAccepted) {
         throw new Error('Partner has not accepted the invitation')
       }
 
@@ -368,11 +350,13 @@ const DoubleRegistrationConfirmationPage = () => {
         throw new Error('Partner is already registered for this category')
       }
 
-      // Check if current player is already in another active team for same tournament/category
-      const currentPlayerTeams = teamStore.getPlayerTeams(currentProfile!.id)
-      const currentPlayerInAnotherTeam = currentPlayerTeams.some(team =>
-        team.tournamentId === tournamentId &&
-        team.categoryId === categoryId &&
+      // Refresh teams from the Worker before checking duplicate pairs and
+      // capacity. The registration endpoint remains authoritative on submit.
+      const categoryTeams = await teamService.getCategoryTeams(tournamentId, categoryId)
+
+      // Check if current player is already in another active team for this category.
+      const currentPlayerInAnotherTeam = categoryTeams.some(team =>
+        (team.player1Id === currentProfile!.id || team.player2Id === currentProfile!.id) &&
         team.status === 'CONFIRMED'
       )
       if (currentPlayerInAnotherTeam) {
@@ -384,20 +368,16 @@ const DoubleRegistrationConfirmationPage = () => {
       if (partnerType === 'FULL') {
         const partnerProfile = playerDirectoryStore.getProfileById(partnerId)
         if (partnerProfile) {
-          const partnerTeams = teamStore.getPlayerTeams(partnerProfile.id)
-          partnerInAnotherTeam = partnerTeams.some(team =>
-            team.tournamentId === tournamentId &&
-            team.categoryId === categoryId &&
+          partnerInAnotherTeam = categoryTeams.some(team =>
+            (team.player1Id === partnerProfile.id || team.player2Id === partnerProfile.id) &&
             team.status === 'CONFIRMED'
           )
         }
       } else if (partnerType === 'GUEST') {
         const guest = guestPlayerStore.getGuestById(partnerId)
         if (guest) {
-          const guestTeams = teamStore.getPlayerTeams(guest.id)
-          partnerInAnotherTeam = guestTeams.some(team =>
-            team.tournamentId === tournamentId &&
-            team.categoryId === categoryId &&
+          partnerInAnotherTeam = categoryTeams.some(team =>
+            (team.player1Id === guest.id || team.player2Id === guest.id) &&
             team.status === 'CONFIRMED'
           )
         }
@@ -406,27 +386,21 @@ const DoubleRegistrationConfirmationPage = () => {
         throw new Error('Partner is already in another team for this category')
       }
 
-      // Check if the pair already exists as a team
-      let teamExists = false
-      try {
-        teamExists = await teamService.teamExists(
-          tournamentId,
-          categoryId,
-          currentProfile!.id,
-          partnerId
-        )
-      } catch (err) {
-        setError('Failed to check if team already exists. Please try again.')
-        return
-      }
+      // Check if the pair already exists as a team.
+      const teamExists = categoryTeams.some((team) =>
+        (team.player1Id === currentProfile!.id && team.player2Id === partnerId) ||
+        (team.player1Id === partnerId && team.player2Id === currentProfile!.id)
+      )
       if (teamExists) {
         throw new Error('A team with these two players already exists for this category')
       }
 
       // Check category capacity (for doubles, we count CONFIRMED teams)
-      const confirmedTeams = teamStore.getCategoryTeams(tournamentId, categoryId)
-        .filter(team => team.status === 'CONFIRMED')
-      if (category.maxTeams !== undefined && confirmedTeams.length >= category.maxTeams) {
+      const confirmedTeams = categoryTeams.filter(team => team.status === 'CONFIRMED')
+      const maxTeams = typeof category.maxTeams === 'number' && category.maxTeams > 0
+        ? category.maxTeams
+        : undefined
+      if (maxTeams !== undefined && confirmedTeams.length >= maxTeams) {
         throw new Error('Category is full')
       }
 
@@ -505,6 +479,10 @@ const DoubleRegistrationConfirmationPage = () => {
     )
   }
 
+  if (loadingCategoryPhase) {
+    return <div className="text-center py-8">Loading registration status...</div>
+  }
+
   if (!hasProfile || !currentProfile) {
     return (
       <div className="p-4">
@@ -566,6 +544,14 @@ const DoubleRegistrationConfirmationPage = () => {
         <p className="text-red-500">
           Invalid category type for doubles registration
         </p>
+      </div>
+    )
+  }
+
+  if (category.registrationPhase === 'CLOSED') {
+    return (
+      <div className="p-4">
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">Registration Closed</p>
       </div>
     )
   }
@@ -715,16 +701,16 @@ const DoubleRegistrationConfirmationPage = () => {
         </h3>
         <p className="text-sm text-gray-500">
           {partnerType === 'FULL'
-            ? partnerStatus === 'PENDING_CONFIRMATION'
-              ? 'Waiting for partner to accept'
-              : partnerStatus === 'ACCEPTED'
-                ? 'Partner has accepted'
+            ? partnerAccepted || partnerStatus === 'ACCEPTED'
+              ? 'Partner has accepted'
+              : partnerStatus === 'PENDING_CONFIRMATION'
+                ? 'Waiting for partner to accept'
                 : 'Unknown'
             : 'Guest partner (automatically accepted)'}
           </p>
       </div>
 
-      {showPartnerAcceptButton && !partnerAccepted && (
+      {showPartnerAcceptButton && !partnerAccepted && currentPlayerEligibility === true && partnerEligibility === true && (
         <div className="mb-6">
           <button
             type="button"
@@ -750,13 +736,13 @@ const DoubleRegistrationConfirmationPage = () => {
           className="ml-4 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600"
           disabled={
             isLoading ||
+            success ||
             currentPlayerEligibility !== true ||
             partnerEligibility !== true ||
-            (partnerType === 'FULL' && !partnerAccepted) ||
-            error !== null
+            (partnerType === 'FULL' && !partnerAccepted)
           }
         >
-          Confirm Team & Register
+          {isLoading ? 'Registering...' : success ? 'Registration Complete' : 'Confirm Team & Register'}
         </button>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { useTournamentStore } from '@/features/tournaments/store/tournamentStore
 import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
 import { useAuthStore } from '@/store/authStore'
 
-import { TournamentCategory } from '@/features/tournaments/types/tournament.types'
 import { Fixture, FixtureMatch } from '@/features/fixtures/types/fixture.types'
 import { Team } from '@/features/teams/types/team.types'
 import { Registration } from '@/features/registrations/types/registration.types'
@@ -32,7 +31,6 @@ const CategoryFixturePage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [category, setCategory] = useState<TournamentCategory | null>(null)
   const [fixture, setFixture] = useState<Fixture | null>(null)
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [isPublishing, setIsPublishing] = useState<boolean>(false)
@@ -46,16 +44,15 @@ const CategoryFixturePage = () => {
   const [isCompletingMatch, setIsCompletingMatch] = useState<string | false>(false) // matchId or false
   const [entryCount, setEntryCount] = useState(0)
 
-  const refreshCategoryData = async () => {
+  const refreshCategoryData = async (refreshTournament = true) => {
     if (!tournamentId || !categoryId) return
     const tournamentStore = useTournamentStore.getState()
-    await tournamentStore.fetchTournamentById(tournamentId)
+    if (refreshTournament) await tournamentStore.fetchTournamentById(tournamentId)
 
     const updatedTournament = useTournamentStore.getState().tournament
     const updatedCategory = updatedTournament?.categories.find(item => item.id === categoryId)
     if (!updatedCategory) return
 
-    setCategory(updatedCategory)
     const entries = updatedCategory.eventType === 'SINGLES'
       ? (await registrationService.getTournamentRegistrations(tournamentId)).filter(item => item.categoryId === categoryId && item.status === 'REGISTERED')
       : (await teamService.getCategoryTeams(tournamentId, categoryId)).filter(item => item.status === 'CONFIRMED')
@@ -68,6 +65,10 @@ const CategoryFixturePage = () => {
   useEffect(() => {
     void refreshCategoryData().catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load category details'))
   }, [tournamentId, categoryId])
+
+  // Keep the category phase in one canonical place: the current tournament
+  // record. A local category copy can otherwise survive a successful close.
+  const category = tournament?.categories.find((item) => item.id === categoryId) ?? null
 
   if (tournamentLoading || !tournament) {
     return (
@@ -102,10 +103,16 @@ const CategoryFixturePage = () => {
     .find(match => match.status === 'COMPLETED' && match.winnerId)
   const champion = finalMatch ? (finalMatch.participant1?.id === finalMatch.winnerId ? finalMatch.participant1 : finalMatch.participant2) : undefined
   const runnerUp = finalMatch ? (finalMatch.participant1?.id === finalMatch.winnerId ? finalMatch.participant2 : finalMatch.participant1) : undefined
-  const canGenerateFixture = category.registrationPhase === 'CLOSED' && entryCount >= 2
-  const generationMessage = category.registrationPhase === 'OPEN'
-    ? 'Close registration before generating fixtures.'
-    : entryCount < 2
+  const registrationPhase = category.registrationPhase ?? 'OPEN'
+  const hasRegistrations = entryCount > 0
+  const hasEnoughEntries = entryCount >= 2
+  const canCloseRegistration = canManageFixture && registrationPhase === 'OPEN' && hasRegistrations && !fixture
+  const canGenerateFixture = registrationPhase === 'CLOSED' && hasEnoughEntries
+  const generationMessage = !hasRegistrations
+    ? 'No registrations available yet.'
+    : registrationPhase === 'OPEN'
+      ? 'Close registration before generating fixtures.'
+      : !hasEnoughEntries
       ? category.eventType === 'SINGLES'
         ? 'At least 2 participants are required to generate fixtures.'
         : 'At least 2 teams are required to generate fixtures.'
@@ -120,13 +127,13 @@ const CategoryFixturePage = () => {
   )
 
   const handleCloseRegistration = async () => {
-    if (!tournamentId || !categoryId || !currentUser || !canManageFixture || category.registrationPhase !== 'OPEN') return
+    if (!tournamentId || !categoryId || !currentUser || !canCloseRegistration) return
     setIsClosingRegistration(true)
     setError(null)
     setSuccess(null)
     try {
       await useTournamentStore.getState().closeCategoryRegistration(currentUser.id, tournamentId, categoryId)
-      await refreshCategoryData()
+      await refreshCategoryData(false)
       setSuccess('Registration closed successfully. You can now generate the fixture when the minimum entries are available.')
     } catch (err) {
       await refreshCategoryData().catch(() => undefined)
@@ -142,10 +149,10 @@ const CategoryFixturePage = () => {
     }
   }
 
-  const registrationCloseControl = canManageFixture && category.registrationPhase === 'OPEN' && (
+  const registrationCloseControl = canManageFixture && registrationPhase === 'OPEN' && !fixture && (
     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
       {!showCloseConfirmation ? (
-        <button type="button" onClick={() => setShowCloseConfirmation(true)} disabled={isClosingRegistration} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Close Registration</button>
+        <><button type="button" onClick={() => setShowCloseConfirmation(true)} disabled={isClosingRegistration || !canCloseRegistration} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">{isClosingRegistration ? 'Closing...' : 'Close Registration'}</button>{!hasRegistrations && <p className="mt-2 text-sm text-amber-800">No registrations available yet.</p>}</>
       ) : (
         <div className="space-y-3"><p className="text-sm text-slate-700">Close registration with {entryCount} {category.eventType === 'SINGLES' ? 'registered players' : 'registered teams'}? New registrations will no longer be accepted.</p><div className="flex flex-wrap gap-3"><button type="button" onClick={() => setShowCloseConfirmation(false)} disabled={isClosingRegistration} className="rounded-lg bg-slate-500 px-4 py-2 text-sm font-bold text-white hover:bg-slate-600 disabled:opacity-50">Cancel</button><button type="button" onClick={handleCloseRegistration} disabled={isClosingRegistration} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50">{isClosingRegistration ? 'Closing...' : 'Confirm Close'}</button></div></div>
       )}
@@ -220,12 +227,10 @@ const CategoryFixturePage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the started match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-      }
+      if (updatedMatch) setFixture((current) => current ? {
+        ...current,
+        matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+      } : current)
       setError('Match started successfully')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
@@ -260,12 +265,10 @@ const CategoryFixturePage = () => {
         side,
         delta
       )
-      // Update fixture with the updated match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-      }
+      if (updatedMatch) setFixture((current) => current ? {
+        ...current,
+        matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+      } : current)
       // Clear scoring state after successful update
       setIsScoring(null)
     } catch (err) {
@@ -311,12 +314,10 @@ const CategoryFixturePage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the completed match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-      }
+      if (updatedMatch) setFixture((current) => current ? {
+        ...current,
+        matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+      } : current)
       setError('Match completed successfully')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
@@ -494,8 +495,8 @@ const CategoryFixturePage = () => {
                 </div>
 
                 {/* Participant 2 Score Controls */}
-                {canScoreMatch(match) && !match.participant1Score && !match.participant2Score ? (
-                  // Already handled in P1 section, just show scores
+                {!canScoreMatch(match) ? (
+                  // Scheduled and completed matches remain read-only.
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P2 Score:</span>
                     <span className="text-sm">
@@ -593,12 +594,10 @@ const CategoryFixturePage = () => {
                 )}
 
                 {/* Winner Display */}
-                {match.winnerId && (
+                {match.status === 'COMPLETED' && (
                   <div className="flex justify-between items-start mt-2">
-                    <span className="font-medium text-gray-700">Winner:</span>
-                    <span className="text-sm font-semibold text-green-600">
-                      {match.participant1?.id === match.winnerId ? match.participant1?.name : match.participant2?.name}
-                    </span>
+                    <span className="font-medium text-gray-700">🏆 Winner:</span>
+                    <span className="text-right text-sm font-semibold text-green-600"><span className="block">{match.winnerParticipantName || 'Winner confirmed'}</span>{match.winnerParticipantName && match.winnerParticipantCode && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(match.winnerParticipantCode) && <span className="block text-xs font-normal text-slate-500">{match.winnerParticipantCode}</span>}</span>
                   </div>
                 )}
 
@@ -653,7 +652,7 @@ const CategoryFixturePage = () => {
         <div className="mb-4">
           <p className="text-sm text-gray-600">
             Registration Phase:
-            {category.registrationPhase === 'OPEN' ? (
+            {registrationPhase === 'OPEN' ? (
               <span className="text-green-600">Open</span>
             ) : (
               <span className="text-red-600">Closed</span>
@@ -744,7 +743,7 @@ const CategoryFixturePage = () => {
         <div className="mb-4">
           <p className="text-sm text-gray-600">
             Registration Phase:
-            {category.registrationPhase === 'OPEN' ? (
+            {registrationPhase === 'OPEN' ? (
               <span className="text-green-600">Open</span>
             ) : (
               <span className="text-red-600">Closed</span>

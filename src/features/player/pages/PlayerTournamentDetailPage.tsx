@@ -261,6 +261,13 @@ const PlayerTournamentDetailPage = () => {
     return match.status === 'LIVE' || match.status === 'COMPLETED'
   }
 
+  // Partner selection is the next step for an otherwise eligible doubles
+  // player. It is not a category-level rejection, so keep this Worker reason
+  // out of the red eligibility state until a partner has actually been chosen.
+  const isPartnerSelectionReason = (reason: EligibilityResult['reasons'][number]) => (
+    String(reason.code) === 'PARTNER_REQUIRED' || /(?:doubles )?partner is required/i.test(reason.message)
+  )
+
   const handleRegister = async (categoryId: string) => {
     if (!hasProfile || !profile) {
       setRegistrationStatus((previous) => ({
@@ -552,8 +559,13 @@ const PlayerTournamentDetailPage = () => {
 
           <div className="grid gap-4 lg:grid-cols-2">
             {tournament.categories.map((category, index) => {
-              const eligibility =
-                eligibilityResults.get(category.id)
+              const eligibility = eligibilityResults.get(category.id)
+              const playerOnlyReasons = category.eventType === 'DOUBLES'
+                ? eligibility?.reasons.filter((reason) => !isPartnerSelectionReason(reason)) ?? []
+                : eligibility?.reasons ?? []
+              const isEligibleForCategory = Boolean(eligibility?.eligible || (
+                category.eventType === 'DOUBLES' && eligibility && playerOnlyReasons.length === 0
+              ))
 
               const isRegistered =
                 playerRegistrations.some(
@@ -774,19 +786,15 @@ const PlayerTournamentDetailPage = () => {
                               </div>
                             )}
 
-                            {match.winnerId && (
+                            {match.status === 'COMPLETED' && (
                               <div className="flex justify-between items-start mt-2">
                                 <span className="font-medium text-gray-700">
-                                  Winner:
+                                  🏆 Winner:
                                 </span>
 
-                                <span className="text-sm font-semibold text-green-600">
-                                  {match.participant1?.id ===
-                                  match.winnerId
-                                    ? match.participant1
-                                        ?.name
-                                    : match.participant2
-                                        ?.name}
+                                <span className="text-right text-sm font-semibold text-green-600">
+                                  <span className="block">{match.winnerParticipantName || 'Winner confirmed'}</span>
+                                  {match.winnerParticipantName && match.winnerParticipantCode && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(match.winnerParticipantCode) && <span className="block text-xs font-normal text-gray-500">{match.winnerParticipantCode}</span>}
                                 </span>
                               </div>
                             )}
@@ -813,7 +821,7 @@ const PlayerTournamentDetailPage = () => {
                     ) : (
                       <>
                     {eligibility ? (
-                      eligibility.eligible ? (
+                      isEligibleForCategory ? (
                         <>
                           <p className="player-eligible">
                             ✓ You are eligible to play
@@ -878,7 +886,7 @@ const PlayerTournamentDetailPage = () => {
                           </p>
 
                           <ul className="mt-2 space-y-1 text-sm text-red-600">
-                            {eligibility.reasons.map(
+                            {playerOnlyReasons.map(
                               (reason, index) => (
                                 <li
                                   key={`${reason.code}-${index}`}

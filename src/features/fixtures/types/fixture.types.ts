@@ -69,6 +69,13 @@ export interface FixtureMatch {
   participant1: FixtureParticipant | null; // null means bye
   participant2: FixtureParticipant | null;
   winnerId: string | null; // id of the winning participant (playerId or teamId)
+  // Supplied by the Worker for a completed match. These are presentation data;
+  // the identifier remains available for bracket progression but is never shown
+  // as the winner label.
+  winnerParticipantId?: string | null;
+  winnerParticipantType?: ParticipantType | null;
+  winnerParticipantName?: string | null;
+  winnerParticipantCode?: string | null;
   nextMatchId: string | null; // id of the match where the winner advances
   nextMatchSlot: 'PARTICIPANT_1' | 'PARTICIPANT_2' | null; // which participant slot in the next match
   status: MatchStatus;
