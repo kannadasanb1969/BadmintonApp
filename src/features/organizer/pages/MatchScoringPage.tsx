@@ -181,12 +181,12 @@ const MatchScoringPage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the started match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-        setMatch(currentFixture.matches.find(m => m.id === matchId))
+      if (updatedMatch) {
+        setMatch(updatedMatch)
+        setFixture((current) => current ? {
+          ...current,
+          matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+        } : current)
       }
       setSuccessMessage('Match started successfully')
     } catch (err) {
@@ -213,12 +213,12 @@ const MatchScoringPage = () => {
         side,
         delta
       )
-      // Update fixture with the updated match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-        setMatch(currentFixture.matches.find(m => m.id === matchId))
+      if (updatedMatch) {
+        setMatch(updatedMatch)
+        setFixture((current) => current ? {
+          ...current,
+          matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+        } : current)
       }
       // Clear scoring state after successful update
     } catch (err) {
@@ -267,12 +267,12 @@ const MatchScoringPage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the completed match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-        setMatch(currentFixture.matches.find(m => m.id === matchId))
+      if (updatedMatch) {
+        setMatch(updatedMatch)
+        setFixture((current) => current ? {
+          ...current,
+          matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+        } : current)
       }
       setSuccessMessage('Match completed successfully')
     } catch (err) {

@@ -220,12 +220,10 @@ const CategoryFixturePage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the started match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-      }
+      if (updatedMatch) setFixture((current) => current ? {
+        ...current,
+        matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+      } : current)
       setError('Match started successfully')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
@@ -260,12 +258,10 @@ const CategoryFixturePage = () => {
         side,
         delta
       )
-      // Update fixture with the updated match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-      }
+      if (updatedMatch) setFixture((current) => current ? {
+        ...current,
+        matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+      } : current)
       // Clear scoring state after successful update
       setIsScoring(null)
     } catch (err) {
@@ -311,12 +307,10 @@ const CategoryFixturePage = () => {
         categoryId,
         matchId
       )
-      // Update fixture with the completed match
-      const fixtureStore = useFixtureStore.getState()
-      const currentFixture = fixtureStore.getFixtureByTournamentCategory(tournamentId, categoryId)
-      if (currentFixture) {
-        setFixture(currentFixture)
-      }
+      if (updatedMatch) setFixture((current) => current ? {
+        ...current,
+        matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
+      } : current)
       setError('Match completed successfully')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
