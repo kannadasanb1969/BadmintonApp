@@ -113,7 +113,7 @@ export const tournamentService = {
     if (isExplicitMockApiMode) throw new Error('Use the local tournament store to close registration in mock mode')
     const user = useAuthStore.getState().user
     if (!user || (user.role !== 'ORGANIZER' && user.role !== 'ADMIN')) throw new Error('Organizer or admin authentication is required')
-    await apiClient.post(`/api/tournaments/${tournamentId}/categories/${categoryId}/close`, { organizerUserId: user.id })
+    await apiClient.post(`/api/tournaments/${tournamentId}/categories/${categoryId}/close`)
     return tournamentService.getTournamentById(tournamentId)
   },
 
