@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
@@ -7,6 +7,10 @@ import { useTournamentStore } from '@/features/tournaments/store/tournamentStore
 import { useTeamStore } from '@/features/teams/store/teamStore'
 import { usePlayerDirectoryStore } from '@/features/player/store/playerDirectoryStore'
 import { useAuthStore } from '@/store/authStore'
+import { fixtureService } from '@/features/fixtures/services/fixtureService'
+import { registrationService } from '@/features/registrations/services/registrationService'
+import { teamService } from '@/features/teams/services/teamService'
+import { tournamentService } from '@/features/tournaments/services/tournamentService'
 
 const PlayerFixturesPage = () => {
   const navigate = useNavigate()
@@ -18,6 +22,36 @@ const PlayerFixturesPage = () => {
   const fixtures = useFixtureStore(state => state.fixtures)
   const tournaments = useTournamentStore(state => state.tournaments)
   const teams = useTeamStore(state => state.teams)
+  const [isLoadingFixtures, setIsLoadingFixtures] = useState(false)
+  const [fixtureLoadError, setFixtureLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!profile) return
+
+    let cancelled = false
+    setIsLoadingFixtures(true)
+    setFixtureLoadError(null)
+
+    // Fetch each collection when this screen opens. A login can happen after
+    // AppProviders has mounted, so relying only on its initial hydration leaves
+    // this page with empty in-memory fixture and registration stores.
+    void Promise.all([
+      fixtureService.getFixtures(),
+      registrationService.getPlayerRegistrations(profile.id),
+      teamService.getPlayerTeams(profile.id),
+      tournamentService.getTournaments(),
+    ])
+      .catch((error: unknown) => {
+        if (!cancelled) setFixtureLoadError(error instanceof Error ? error.message : 'Unable to load fixtures')
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingFixtures(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id])
 
   const playerFixtures = useMemo(() => {
     if (!profile) return []
@@ -30,7 +64,7 @@ const PlayerFixturesPage = () => {
 
   return <div className="space-y-6">
     <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 to-emerald-900 p-6 text-white sm:p-8"><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">My match centre</p><h1 className="mt-2 text-3xl font-black">Fixtures & results</h1><p className="mt-2 text-sm text-slate-300">Follow your team’s draw, match status, and scores.</p></section>
-    {playerFixtures.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><p className="text-lg font-bold text-slate-800">No fixtures available yet</p><p className="mt-2 text-sm text-slate-500">Fixtures appear here after your tournament registration closes and the organizer publishes the draw.</p><button onClick={() => navigate('/player/registrations')} className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">View my registrations</button></div> : playerFixtures.map(fixture => {
+    {isLoadingFixtures ? <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center"><p className="text-lg font-bold text-slate-800">Loading your fixtures…</p></div> : fixtureLoadError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-700"><p className="font-bold">Unable to load fixtures</p><p className="mt-1 text-sm">{fixtureLoadError}</p></div> : playerFixtures.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><p className="text-lg font-bold text-slate-800">No fixtures available yet</p><p className="mt-2 text-sm text-slate-500">Fixtures appear here after your tournament registration closes and the organizer publishes the draw.</p><button onClick={() => navigate('/player/registrations')} className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">View my registrations</button></div> : playerFixtures.map(fixture => {
       const tournament = tournaments.find(item => item.id === fixture.tournamentId)
       const validMatches = (fixture.matches ?? []).filter(Boolean)
       const rounds = Array.from(new Set(validMatches.map(match => match.roundNumber))).sort((a, b) => a - b)
