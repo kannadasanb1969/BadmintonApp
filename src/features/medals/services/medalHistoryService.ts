@@ -17,7 +17,7 @@ const fromWorker = async (raw: WorkerMedal): Promise<MedalHistory> => {
   }
   const tournament = await tournamentService.getTournamentById(raw.tournamentId)
   const category = tournament?.categories.find((item) => item.id === raw.categoryId)
-  return { ...raw, playerId, playerCode: isGuest ? (identity as { guestCode?: string } | undefined)?.guestCode ?? playerId : (identity as { playerCode?: string } | undefined)?.playerCode ?? playerId, playerName: identity?.fullName ?? playerId, tournamentCode: tournament?.tournamentCode ?? raw.tournamentId, tournamentName: tournament?.name ?? raw.tournamentId, categoryName: category?.eventType ?? raw.categoryId }
+  return { ...raw, playerId, playerCode: isGuest ? (identity as { guestCode?: string } | undefined)?.guestCode ?? playerId : (identity as { playerCode?: string } | undefined)?.playerCode ?? playerId, playerName: identity?.fullName ?? playerId, tournamentCode: tournament?.tournamentCode ?? raw.tournamentId, tournamentName: tournament?.name ?? raw.tournamentId, categoryName: category?.name ?? raw.categoryId }
 }
 
 const cache = (medals: MedalHistory[]) => useMedalHistoryStore.getState().replaceMedalHistory(medals)
