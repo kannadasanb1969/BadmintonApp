@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { useAuthStore } from '@/store/authStore'
 
 export interface ApiEnvelope<T> {
   success: boolean
@@ -43,6 +44,14 @@ export const normalizeApiError = (error: unknown): ApiError => {
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
   headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+})
+
+apiClient.interceptors.request.use((config) => {
+  const accessToken = useAuthStore.getState().accessToken
+  if (accessToken && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return config
 })
 
 apiClient.interceptors.response.use(
