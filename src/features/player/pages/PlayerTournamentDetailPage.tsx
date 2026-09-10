@@ -17,6 +17,7 @@ import { medalHistoryService } from '@/features/medals/services/medalHistoryServ
 import {
   formatDateDisplay,
   formatTimeDisplay,
+  displayRegistrationCount,
 } from '@/features/tournaments/utils/tournamentHelpers'
 
 const PlayerTournamentDetailPage = () => {
@@ -568,6 +569,8 @@ const PlayerTournamentDetailPage = () => {
                 registrationStatus[category.id]
 
               const fixture = fixtures.get(category.id)
+              const registeredPlayers = displayRegistrationCount(category.registeredPlayerCount)
+              const registeredTeams = displayRegistrationCount(category.registeredTeamCount)
 
               return (
                 <div
@@ -597,6 +600,8 @@ const PlayerTournamentDetailPage = () => {
                         {category.maxTeams}
                       </p>
                     )}
+
+                    <div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">👥 {registeredPlayers} Registered</span>{category.eventType === 'DOUBLES' && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">🏸 {registeredTeams} Teams</span>}</div>
 
                     <p className="text-sm text-gray-500">
                       Medalists Allowed:{' '}
