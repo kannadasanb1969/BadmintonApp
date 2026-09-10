@@ -45,6 +45,15 @@ const cacheTournament = (tournament: Tournament) => {
   }))
 }
 
+const withClosedCategory = (tournament: Tournament, categoryId: string): Tournament => ({
+  ...tournament,
+  categories: tournament.categories.map((category) => category.id === categoryId ? {
+    ...category,
+    registrationPhase: 'CLOSED',
+    registrationClosedAt: category.registrationClosedAt ?? new Date().toISOString(),
+  } : category),
+})
+
 const workerPayload = (data: Partial<TournamentFormValues>, organizerId?: string) => ({
   ...(organizerId ? { organizerId } : {}),
   ...data,
@@ -114,7 +123,26 @@ export const tournamentService = {
     const user = useAuthStore.getState().user
     if (!user || (user.role !== 'ORGANIZER' && user.role !== 'ADMIN')) throw new Error('Organizer or admin authentication is required')
     await apiClient.post(`/api/tournaments/${tournamentId}/categories/${categoryId}/close`, {})
-    return tournamentService.getTournamentById(tournamentId)
+
+    // A successful close acknowledgement is authoritative for this transition.
+    // Apply it to the canonical cache immediately, then reconcile with the GET
+    // response when it contains the closed phase. This prevents a delayed read
+    // from restoring OPEN in the UI after the mutation has succeeded.
+    const cachedTournament = useTournamentStore.getState().tournament?.id === tournamentId
+      ? useTournamentStore.getState().tournament
+      : useTournamentStore.getState().tournaments.find((item) => item.id === tournamentId)
+    const closedTournament = cachedTournament ? withClosedCategory(cachedTournament, categoryId) : null
+    if (closedTournament) cacheTournament(closedTournament)
+
+    const refreshedTournament = await tournamentService.getTournamentById(tournamentId)
+    const refreshedCategory = refreshedTournament?.categories.find((category) => category.id === categoryId)
+    if (refreshedTournament && refreshedCategory?.registrationPhase === 'CLOSED') return refreshedTournament
+    if (closedTournament) {
+      cacheTournament(closedTournament)
+      return closedTournament
+    }
+    if (!refreshedTournament) throw new Error('Tournament could not be reloaded after closing registration')
+    return refreshedTournament
   },
 
   submitTournamentForApproval: async (id: string): Promise<Tournament> => {
