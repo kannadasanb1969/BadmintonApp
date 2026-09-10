@@ -201,7 +201,7 @@ const CategoryFixturePage = () => {
         fixture.id
       )
       setFixture(updatedFixture)
-      setError('Fixture published successfully')
+      setSuccess('Fixture published successfully. Players can now view the draw.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
