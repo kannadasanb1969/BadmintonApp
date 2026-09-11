@@ -39,6 +39,7 @@ const MatchScoringPage = () => {
   const [showConfirmation, setShowConfirmation] = useState<boolean>(false)
   const [confirmationType, setConfirmationType] = useState<'complete' | null>(null)
   const { enqueue: enqueueScore } = useOptimisticMatchScore()
+  const [selectedWinningPoints, setSelectedWinningPoints] = useState<15 | 21 | 30 | undefined>()
 
   useEffect(() => {
     // Fetch tournament, category, fixture, and match if not already loaded
@@ -164,15 +165,15 @@ const MatchScoringPage = () => {
       isOrganizer
     )
   }
-  const winningPoints = match.winningPoints ?? 21
+  const existingWinningPoints = match.winningPoints === 15 || match.winningPoints === 21 || match.winningPoints === 30 ? match.winningPoints : undefined
+  const winningPoints = existingWinningPoints ?? 21
+  const winningPointsForStart = selectedWinningPoints ?? existingWinningPoints
   const handleWinningPointsChange = (points: 15 | 21 | 30) => {
-    if (!isExplicitMockApiMode) return
-    const updated = useFixtureStore.getState().setMatchWinningPoints(fixture.id, match.id, points)
-    if (updated) setMatch(updated)
+    setSelectedWinningPoints(points)
   }
 
   const handleStartMatch = async () => {
-    if (!tournament || !canStartMatch(match)) return
+    if (!tournament || !canStartMatch(match) || !winningPointsForStart) return
     setIsLoading(true)
     setErrorMessage(null)
     setSuccessMessage(null)
@@ -181,7 +182,8 @@ const MatchScoringPage = () => {
         currentUser?.id ?? '',
         tournamentId,
         categoryId,
-        matchId
+        matchId,
+        winningPointsForStart,
       )
       if (updatedMatch) {
         setMatch(updatedMatch)
@@ -354,7 +356,8 @@ const MatchScoringPage = () => {
       </div>
 
       <div className="space-y-4">
-        {isExplicitMockApiMode && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="flex items-start gap-3"><span className="text-3xl">🎯</span><div><h3 className="text-lg font-black text-slate-900">Total Points (Winning Points)</h3><p className="text-sm text-slate-500">First team to reach the selected score wins.</p></div></div><div className="mt-4 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" disabled={match.status === 'COMPLETED'} onClick={() => handleWinningPointsChange(points)} className={`rounded-xl px-3 py-3 text-sm font-black transition ${winningPoints === points ? 'bg-blue-600 text-white shadow-lg' : 'border border-slate-200 bg-white text-slate-700 hover:border-blue-400'}`}>{winningPoints === points ? '✓ ' : ''}{points} Points</button>)}</div><p className="mt-3 text-center text-sm text-blue-700">First to reach <strong>{winningPoints}</strong> points wins this match.</p></section>}
+        {match.status === 'SCHEDULED' && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="flex items-start gap-3"><span className="text-3xl">🎯</span><div><h3 className="text-lg font-black text-slate-900">Winning Points</h3><p className="text-sm text-slate-500">Choose the score target before starting this match.</p></div></div><div className="mt-4 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleWinningPointsChange(points)} className={`rounded-xl px-3 py-3 text-sm font-black transition ${winningPointsForStart === points ? 'bg-blue-600 text-white shadow-lg' : 'border border-slate-200 bg-white text-slate-700 hover:border-blue-400'}`}>{winningPointsForStart === points ? '✓ ' : ''}{points} Points</button>)}</div>{!winningPointsForStart && <p className="mt-3 text-sm text-amber-700">Select winning points to start the match.</p>}</section>}
+        {(match.status === 'LIVE' || match.status === 'COMPLETED') && existingWinningPoints && <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">Playing to {existingWinningPoints}</p>}
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-start">
             <span className="font-medium text-gray-700">Participant 1:</span>
@@ -377,14 +380,16 @@ const MatchScoringPage = () => {
                 {isLoading ? (
                   <button
                     onClick={handleStartMatch}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    disabled={!winningPointsForStart}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Starting...
                   </button>
                 ) : (
                   <button
                     onClick={handleStartMatch}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    disabled={!winningPointsForStart}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Start Match
                   </button>

@@ -44,6 +44,7 @@ const CategoryFixturePage = () => {
   const [isCompletingMatch, setIsCompletingMatch] = useState<string | false>(false) // matchId or false
   const [entryCount, setEntryCount] = useState(0)
   const { enqueue: enqueueScore } = useOptimisticMatchScore()
+  const [winningPointSelections, setWinningPointSelections] = useState<Record<string, 15 | 21 | 30>>({})
 
   const refreshCategoryData = async (refreshTournament = true) => {
     if (!tournamentId || !categoryId) return
@@ -217,8 +218,16 @@ const CategoryFixturePage = () => {
     }
   }
 
+  const selectedWinningPoints = (match: FixtureMatch): 15 | 21 | 30 | undefined => {
+    const value = winningPointSelections[match.id] ?? match.winningPoints
+    return value === 15 || value === 21 || value === 30 ? value : undefined
+  }
+
   const handleStartMatch = async (matchId: string) => {
     if (!tournament || !currentUser || !canManageFixture) return
+    const currentMatch = fixture?.matches.find((item) => item.id === matchId)
+    const winningPoints = currentMatch ? selectedWinningPoints(currentMatch) : undefined
+    if (!winningPoints) return
     setIsStartingMatch(matchId)
     setError(null)
     try {
@@ -226,7 +235,8 @@ const CategoryFixturePage = () => {
         currentUser.id,
         tournamentId,
         categoryId,
-        matchId
+        matchId,
+        winningPoints,
       )
       if (updatedMatch) setFixture((current) => current ? {
         ...current,
@@ -241,12 +251,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleSetWinningPoints = (matchId: string, points: 15 | 21 | 30) => {
-    if (!isExplicitMockApiMode) return
-    if (!fixture) return
-    const updatedMatch = useFixtureStore.getState().setMatchWinningPoints(fixture.id, matchId, points)
-    if (!updatedMatch) return
-    const updatedFixture = useFixtureStore.getState().getFixtureByTournamentCategory(tournamentId, categoryId)
-    if (updatedFixture) setFixture(updatedFixture)
+    setWinningPointSelections((current) => ({ ...current, [matchId]: points }))
   }
 
   const handleUpdateScore = async (
@@ -412,21 +417,23 @@ const CategoryFixturePage = () => {
 
                 {/* Participant 1 Score Controls */}
                 {canStartMatch(match) && !match.participant1Score && !match.participant2Score ? (
-                  // Show start match button if scores are 0-0 and match is scheduled
+                  // A score target is selected per match and only persisted when it starts.
                   <div className="match-start-panel mt-4">
-                    {isExplicitMockApiMode && <><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p><div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${(match.winningPoints ?? 21) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{(match.winningPoints ?? 21) === points ? '✓ ' : ''}{points}</button>)}</div><p className="mt-2 text-xs text-blue-700">First to {match.winningPoints ?? 21} points wins.</p></>}
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p><div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${selectedWinningPoints(match) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{selectedWinningPoints(match) === points ? '✓ ' : ''}{points}</button>)}</div>{!selectedWinningPoints(match) && <p className="mt-2 text-xs text-amber-700">Select winning points to start the match.</p>}
                     <div className="mt-3 flex justify-end">
                     {isStartingMatch === match.id ? (
                       <button
                         onClick={() => handleStartMatch(match.id)}
-                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        disabled={!selectedWinningPoints(match)}
+                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Starting...
                       </button>
                     ) : (
                       <button
                         onClick={() => handleStartMatch(match.id)}
-                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        disabled={!selectedWinningPoints(match)}
+                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Start Match
                       </button>
@@ -475,6 +482,10 @@ const CategoryFixturePage = () => {
                       ) : null}
                     </div>
                   </div>
+                )}
+
+                {(match.status === 'LIVE' || match.status === 'COMPLETED') && match.winningPoints && (
+                  <p className="mt-2 text-xs font-semibold text-blue-700">Playing to {match.winningPoints}</p>
                 )}
 
                 <div className="flex justify-between items-start mt-2">

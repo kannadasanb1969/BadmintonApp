@@ -21,7 +21,8 @@ export interface MatchService {
     organizerId: string,
     tournamentId: string,
     categoryId: string,
-    matchId: string
+    matchId: string,
+    winningPoints: 15 | 21 | 30,
   ) => Promise<FixtureMatch | undefined>;
   updateScore: (
     organizerId: string,
@@ -138,10 +139,11 @@ export const matchService: MatchService = {
     organizerId: string,
     tournamentId: string,
     categoryId: string,
-    matchId: string
+    matchId: string,
+    winningPoints: 15 | 21 | 30,
   ): Promise<FixtureMatch | undefined> => {
     if (!isExplicitMockApiMode) {
-      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/start`, { requestedByUserId: organizerId })).data;
+      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/start`, { requestedByUserId: organizerId, winningPoints })).data;
       return syncWorkerMatch(data);
     }
     // Simulate API delay
@@ -190,6 +192,7 @@ export const matchService: MatchService = {
       throw new Error('Both participants must be present to start match');
     }
 
+    fixtureStore.setMatchWinningPoints(fixture.id, matchId, winningPoints);
     // Use explicit published match action
     return fixtureStore.startPublishedMatch(fixture.id, matchId);
   },
