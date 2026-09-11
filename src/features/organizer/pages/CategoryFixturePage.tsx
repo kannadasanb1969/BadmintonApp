@@ -15,6 +15,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { teamService } from '@/features/teams/services/teamService'
+import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
 
 const CategoryFixturePage = () => {
   const { tournamentId, categoryId } = useParams<{ tournamentId: string; categoryId: string }>()
@@ -39,10 +40,10 @@ const CategoryFixturePage = () => {
   const [showCloseConfirmation, setShowCloseConfirmation] = useState<boolean>(false)
   // Scoring state
   const [isStartingMatch, setIsStartingMatch] = useState<string | false>(false) // matchId or false
-  const [isScoring, setIsScoring] = useState<{ matchId: string; side: 'PARTICIPANT_1' | 'PARTICIPANT_2' } | null>(null)
   const [isUndoingScore, setIsUndoingScore] = useState<string | false>(false) // matchId or false
   const [isCompletingMatch, setIsCompletingMatch] = useState<string | false>(false) // matchId or false
   const [entryCount, setEntryCount] = useState(0)
+  const { enqueue: enqueueScore } = useOptimisticMatchScore()
 
   const refreshCategoryData = async (refreshTournament = true) => {
     if (!tournamentId || !categoryId) return
@@ -253,29 +254,21 @@ const CategoryFixturePage = () => {
     side: 'PARTICIPANT_1' | 'PARTICIPANT_2',
     delta: 1 | -1
   ) => {
-    if (!tournament || !currentUser || !canManageFixture) return
-    setIsScoring({ matchId, side })
+    if (!tournament || !currentUser || !canManageFixture || !fixture) return
+    const currentMatch = fixture.matches.find((item) => item.id === matchId)
+    if (!currentMatch) return
     setError(null)
-    try {
-      const updatedMatch = await matchService.updateScore(
-        currentUser.id,
-        tournamentId,
-        categoryId,
-        matchId,
-        side,
-        delta
-      )
-      if (updatedMatch) setFixture((current) => current ? {
+    enqueueScore(
+      currentMatch,
+      side,
+      delta,
+      () => matchService.updateScore(currentUser.id, tournamentId, categoryId, matchId, side, delta),
+      (updatedMatch) => setFixture((current) => current ? {
         ...current,
         matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
-      } : current)
-      // Clear scoring state after successful update
-      setIsScoring(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
-      setIsScoring(null)
-    }
+      } : current),
+      () => setError('Score update failed. Please try again.'),
+    )
   }
 
   const handleUndoScore = async (matchId: string) => {
@@ -443,7 +436,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P1 Score:</span>
                     <div className="flex items-center space-x-2">
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', -1)}
@@ -463,7 +456,7 @@ const CategoryFixturePage = () => {
                       <span className="text-sm font-mono">
                         {match.participant1Score}
                       </span>
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', 1)}
@@ -481,9 +474,6 @@ const CategoryFixturePage = () => {
                         </span>
                       ) : null}
                     </div>
-                    {isScoring && isScoring.matchId === match.id && isScoring.side === 'PARTICIPANT_1' && (
-                      <span className="text-xs text-blue-500">Updating...</span>
-                    )}
                   </div>
                 )}
 
@@ -507,7 +497,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P2 Score:</span>
                     <div className="flex items-center space-x-2">
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', -1)}
@@ -527,7 +517,7 @@ const CategoryFixturePage = () => {
                       <span className="text-sm font-mono">
                         {match.participant2Score}
                       </span>
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', 1)}
@@ -545,9 +535,6 @@ const CategoryFixturePage = () => {
                         </span>
                       ) : null}
                     </div>
-                    {isScoring && isScoring.matchId === match.id && isScoring.side === 'PARTICIPANT_2' && (
-                      <span className="text-xs text-blue-500">Updating...</span>
-                    )}
                   </div>
                 )}
 

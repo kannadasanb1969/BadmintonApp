@@ -66,6 +66,32 @@ const PlayerFixturesPage = () => {
       (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
   }, [fixtures, profile, registrations, requestedCategoryId, requestedTournamentId, teams])
 
+  const liveFixtureIds = useMemo(
+    () => playerFixtures
+      .filter((fixture) => fixture.matches.some((match) => match.status === 'LIVE'))
+      .map((fixture) => fixture.id),
+    [playerFixtures],
+  )
+
+  useEffect(() => {
+    if (liveFixtureIds.length === 0) return
+
+    let cancelled = false
+    const refreshLiveFixtures = () => {
+      if (cancelled || document.visibilityState === 'hidden') return
+      // Individual fixture reads keep the live refresh scoped to this player's
+      // currently visible fixtures and do not trigger the initial-page loader.
+      void Promise.all(liveFixtureIds.map((fixtureId) => fixtureService.getFixture(fixtureId))).catch(() => undefined)
+    }
+
+    refreshLiveFixtures()
+    const timer = window.setInterval(refreshLiveFixtures, 2000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [liveFixtureIds.join(',')])
+
   if (!profile) return <div className="rounded-2xl bg-white p-8 text-center shadow-sm"><p className="text-lg font-bold">Complete your profile to view fixtures.</p><button onClick={() => navigate('/player/profile')} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Complete profile</button></div>
 
   return <div className="space-y-6">

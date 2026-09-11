@@ -16,6 +16,7 @@ import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 import { isExplicitMockApiMode } from '@/api/apiClient'
+import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
 
 const MatchScoringPage = () => {
   const { tournamentId, categoryId, matchId } = useParams<{ tournamentId: string; categoryId: string; matchId: string }>()
@@ -37,6 +38,7 @@ const MatchScoringPage = () => {
   const [match, setMatch] = useState<FixtureMatch | null>(null)
   const [showConfirmation, setShowConfirmation] = useState<boolean>(false)
   const [confirmationType, setConfirmationType] = useState<'complete' | null>(null)
+  const { enqueue: enqueueScore } = useOptimisticMatchScore()
 
   useEffect(() => {
     // Fetch tournament, category, fixture, and match if not already loaded
@@ -200,32 +202,23 @@ const MatchScoringPage = () => {
     side: 'PARTICIPANT_1' | 'PARTICIPANT_2',
     delta: 1 | -1
   ) => {
-    if (!tournament) return
-    setIsLoading(true)
+    if (!tournament || !match) return
     setErrorMessage(null)
     setSuccessMessage(null)
-    try {
-      const updatedMatch = await matchService.updateScore(
-        currentUser?.id ?? '',
-        tournamentId,
-        categoryId,
-        matchId,
-        side,
-        delta
-      )
-      if (updatedMatch) {
+    enqueueScore(
+      match,
+      side,
+      delta,
+      () => matchService.updateScore(currentUser?.id ?? '', tournamentId, categoryId, matchId, side, delta),
+      (updatedMatch) => {
         setMatch(updatedMatch)
         setFixture((current) => current ? {
           ...current,
           matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
         } : current)
-      }
-      // Clear scoring state after successful update
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
-      setIsLoading(false)
-    }
+      },
+      () => setErrorMessage('Score update failed. Please try again.'),
+    )
   }
 
   const handleUndoScore = async () => {
@@ -401,7 +394,7 @@ const MatchScoringPage = () => {
               <div className="flex justify-between items-start">
                 <span className="font-medium text-gray-700">P1 Score:</span>
                 <div className="flex items-center space-x-2">
-                  {canScoreMatch(match) && !isLoading ? (
+                  {canScoreMatch(match) ? (
                     <>
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_1', -1)}
@@ -421,7 +414,7 @@ const MatchScoringPage = () => {
                   <span className="text-sm font-mono">
                     {match.participant1Score}
                   </span>
-                  {canScoreMatch(match) && !isLoading ? (
+                  {canScoreMatch(match) ? (
                     <>
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_1', 1)}
@@ -439,9 +432,6 @@ const MatchScoringPage = () => {
                     </span>
                   )}
                 </div>
-                {isLoading && (
-                  <span className="text-xs text-blue-500">Updating...</span>
-                )}
               </div>
             )}
           </div>
@@ -473,7 +463,7 @@ const MatchScoringPage = () => {
               <div className="flex justify-between items-start">
                 <span className="font-medium text-gray-700">P2 Score:</span>
                 <div className="flex items-center space-x-2">
-                  {canScoreMatch(match) && !isLoading ? (
+                  {canScoreMatch(match) ? (
                     <>
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_2', -1)}
@@ -493,7 +483,7 @@ const MatchScoringPage = () => {
                   <span className="text-sm font-mono">
                     {match.participant2Score}
                   </span>
-                  {canScoreMatch(match) && !isLoading ? (
+                  {canScoreMatch(match) ? (
                     <>
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_2', 1)}
@@ -511,9 +501,6 @@ const MatchScoringPage = () => {
                     </span>
                   )}
                 </div>
-                {isLoading && (
-                  <span className="text-xs text-blue-500">Updating...</span>
-                )}
               </div>
             )}
 
