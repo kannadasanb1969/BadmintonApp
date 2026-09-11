@@ -135,6 +135,7 @@
 .reference-logo small { display: block; margin-top: 1.15rem; font-size: .55rem; font-style: normal; letter-spacing: .38em; white-space: nowrap; }
 .reference-logo small i { color: #c7ff31; font-style: normal; }
 .reference-admin { display: flex; align-items: center; gap: .45rem; border: 1px solid rgb(255 255 255 / .16); border-radius: 1rem; padding: .6rem .7rem; background: rgb(3 20 24 / .55); color: white; font-size: .78rem; text-decoration: none; backdrop-filter: blur(8px); }
+.reference-admin { cursor: pointer; }
 .reference-admin img { width: 1.45rem; height: 1.45rem; object-fit: cover; border-radius: 50%; }
 .reference-admin b { font-size: 1.45rem; font-weight: 400; line-height: .6; }
 .reference-login-intro { margin-top: 4.3rem; }
@@ -169,6 +170,15 @@
 .reference-request-button:disabled { opacity: .65; transform: none; }
 .reference-resend { width: 100%; border: 0; background: transparent; color: #c7ff31; font-weight: 700; }
 .reference-login-form .rounded-xl { border: 1px solid rgb(199 255 49 / .3); background: rgb(4 32 29 / .9); }
+.reference-admin-mode { width: min(100%, 28rem); margin-inline: auto; }
+.reference-admin-back { justify-self: start; border: 0; background: transparent; color: #c7ff31; font-size: .82rem; font-weight: 800; }
+.reference-admin-kicker { color: #c7ff31 !important; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.reference-otp-panel { border: 1px solid rgb(199 255 49 / .32); border-radius: 1rem; padding: 1rem; background: rgb(4 32 29 / .9); }
+.reference-otp-panel label { display: block; margin-bottom: .65rem; color: #e8fff3; font-size: .88rem; font-weight: 800; }
+.reference-otp-panel input { width: 100%; border: 1px solid rgb(199 255 49 / .35); border-radius: .75rem; padding: .8rem 1rem; background: rgb(0 0 0 / .25); color: white; font-size: 1.25rem; font-weight: 800; letter-spacing: .35em; outline: 0; text-align: center; }
+.reference-otp-panel input:focus { border-color: #c7ff31; box-shadow: 0 0 0 4px rgb(199 255 49 / .12); }
+.reference-otp-panel p { margin: .65rem 0 0; color: #c7ff31; font-size: .75rem; font-weight: 700; }
+.reference-login-error { margin: 0; border: 1px solid rgb(254 202 202 / .35); border-radius: .75rem; padding: .75rem 1rem; background: rgb(127 29 29 / .45); color: #fecaca; font-size: .88rem; font-weight: 700; }
 
 @media (max-width: 480px) {
   .reference-login-shell { padding-top: 1.15rem; }
