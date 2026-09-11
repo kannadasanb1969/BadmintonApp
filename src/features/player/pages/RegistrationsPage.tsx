@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
+import { fixtureService } from '@/features/fixtures/services/fixtureService'
+import { Fixture } from '@/features/fixtures/types/fixture.types'
 
 import { Registration } from '@/features/registrations/types/registration.types'
 import { Tournament } from '@/features/tournaments/types/tournament.types'
@@ -23,6 +25,8 @@ const PlayerRegistrationsPage = () => {
 
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [fixtures, setFixtures] = useState<Fixture[]>([])
+  const [loadingFixtures, setLoadingFixtures] = useState(true)
 
   useEffect(() => {
     if (hasProfile && profile) {
@@ -43,6 +47,15 @@ const PlayerRegistrationsPage = () => {
       void fetchTournaments()
     }
   }, [allTournaments.length, tournamentLoading, fetchTournaments])
+
+  useEffect(() => {
+    let cancelled = false
+    void fixtureService.getFixtures()
+      .then((items) => { if (!cancelled) setFixtures(items) })
+      .catch(() => { if (!cancelled) setFixtures([]) })
+      .finally(() => { if (!cancelled) setLoadingFixtures(false) })
+    return () => { cancelled = true }
+  }, [])
 
   if (loading) {
     return (
@@ -107,6 +120,8 @@ const PlayerRegistrationsPage = () => {
       <div className="space-y-4">
         {registrations.map((registration) => {
           const tournament = tournamentMap.get(registration.tournamentId)
+          const fixture = fixtures.find((item) => item.tournamentId === registration.tournamentId && item.categoryId === registration.categoryId)
+          const fixtureAvailable = registration.status === 'REGISTERED' && fixture?.status === 'PUBLISHED'
 
           return (
             <article key={registration.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
@@ -139,7 +154,7 @@ const PlayerRegistrationsPage = () => {
                     )}
                 </div>
 
-                <div className="shrink-0">
+                <div className="flex shrink-0 flex-col gap-2 sm:min-w-40">
                   {registration.status !== 'CANCELLED' && (
                     <button
                       type="button"
@@ -148,9 +163,20 @@ const PlayerRegistrationsPage = () => {
                           `/player/tournaments/${registration.tournamentId}`
                         )
                       }
-                      className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 sm:w-auto"
+                      className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600"
                     >
                       View Tournament
+                    </button>
+                  )}
+                  {registration.status !== 'CANCELLED' && (
+                    <button
+                      type="button"
+                      disabled={!fixtureAvailable || loadingFixtures}
+                      title={fixtureAvailable ? 'View published fixture' : 'Fixture not available yet'}
+                      onClick={() => fixtureAvailable && navigate(`/player/fixtures?tournamentId=${registration.tournamentId}&categoryId=${registration.categoryId}`)}
+                      className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      {loadingFixtures ? 'Checking fixture...' : fixtureAvailable ? 'View Fixtures' : 'Fixture not available yet'}
                     </button>
                   )}
                 </div>

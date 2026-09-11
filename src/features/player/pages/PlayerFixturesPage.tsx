@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
@@ -14,6 +14,9 @@ import { tournamentService } from '@/features/tournaments/services/tournamentSer
 
 const PlayerFixturesPage = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedTournamentId = searchParams.get('tournamentId')
+  const requestedCategoryId = searchParams.get('categoryId')
   const storedProfile = usePlayerProfileStore(state => state.profile)
   const user = useAuthStore(state => state.user)
   const directoryProfile = usePlayerDirectoryStore(state => user ? state.getProfileByMobileExact(user.mobile) : undefined)
@@ -57,8 +60,11 @@ const PlayerFixturesPage = () => {
     if (!profile) return []
     const playerRegistrations = registrations.filter(registration => registration.playerId === profile.id && registration.status === 'REGISTERED')
     const playerTeams = teams.filter(team => team.status === 'CONFIRMED' && (team.player1Id === profile.id || team.player2Id === profile.id))
-    return fixtures.filter(fixture => fixture.status === 'PUBLISHED' && (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
-  }, [fixtures, profile, registrations, teams])
+    return fixtures.filter(fixture => fixture.status === 'PUBLISHED' &&
+      (!requestedTournamentId || fixture.tournamentId === requestedTournamentId) &&
+      (!requestedCategoryId || fixture.categoryId === requestedCategoryId) &&
+      (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
+  }, [fixtures, profile, registrations, requestedCategoryId, requestedTournamentId, teams])
 
   if (!profile) return <div className="rounded-2xl bg-white p-8 text-center shadow-sm"><p className="text-lg font-bold">Complete your profile to view fixtures.</p><button onClick={() => navigate('/player/profile')} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Complete profile</button></div>
 
