@@ -9,6 +9,7 @@ import { useTeamStore } from '@/features/teams/store/teamStore';
 import { notificationService } from '@/features/notifications/services/notificationService';
 import apiClient, { isExplicitMockApiMode } from '@/api/apiClient';
 import { fixtureService } from '@/features/fixtures/services/fixtureService';
+import { isMatchCompletionEligible } from '@/features/matches/utils/matchLifecycle';
 
 
 export interface MatchService {
@@ -385,9 +386,8 @@ export const matchService: MatchService = {
       throw new Error('Both participants must be present to complete match');
     }
 
-    // Check for tie
-    if (match.participant1Score === match.participant2Score) {
-      throw new Error('Match cannot finish with a tied score');
+    if (!isMatchCompletionEligible(match.participant1Score, match.participant2Score, match.winningPoints)) {
+      throw new Error('Match requires the target score and a two-point lead');
     }
 
     // Determine winner

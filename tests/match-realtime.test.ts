@@ -35,9 +35,9 @@ const unsubscribeB = subscribeToMatchRealtime('b', 'secret', { onEvent: event =>
 assert.equal(FakeWebSocket.instances.length, 2)
 const socketA = FakeWebSocket.instances[0]
 socketA.open()
-socketA.message({ type: 'MATCH_SCORE_UPDATED', matchId: 'a', status: 'LIVE', participant1Score: 1, participant2Score: 0, winningPoints: 21 })
+socketA.message({ type: 'MATCH_SCORE_UPDATED', matchId: 'a', status: 'LIVE', participant1Score: 24, participant2Score: 22, winningPoints: 21 })
 socketA.message({ type: 'MATCH_SCORE_UPDATED', matchId: 'b', status: 'LIVE', participant1Score: 99, participant2Score: 0 })
-assert.deepEqual(events, [{ type: 'MATCH_SCORE_UPDATED', matchId: 'a', status: 'LIVE', participant1Score: 1, participant2Score: 0, winningPoints: 21 }])
+assert.deepEqual(events, [{ type: 'MATCH_SCORE_UPDATED', matchId: 'a', status: 'LIVE', participant1Score: 24, participant2Score: 22, winningPoints: 21 }])
 assert.ok(states.includes('CONNECTED'))
 
 socketA.close(1006)

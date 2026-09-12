@@ -40,16 +40,25 @@ import { useOptimisticMatchScore } from '../src/features/matches/hooks/useOptimi
   function Harness() { queue = useOptimisticMatchScore(); return null; }
   renderToStaticMarkup(React.createElement(Harness));
   for (const winningPoints of [15, 21, 30]) {
-    const match = { id: String(winningPoints), status: 'LIVE', winningPoints, participant1Score: winningPoints - 1, participant2Score: 10 };
+    const match = { id: String(winningPoints), status: 'LIVE', winningPoints, participant1Score: winningPoints, participant2Score: 10 };
     let current, submitted = 0;
-    const submit = async () => { submitted++; return { ...match, participant1Score: winningPoints }; };
+    const submit = async () => { submitted++; return { ...match, participant1Score: winningPoints + submitted }; };
     const apply = value => { current = value; };
     const fail = message => { throw new Error(message); };
     queue.enqueue(match, 'PARTICIPANT_1', 1, submit, apply, fail);
     queue.enqueue(match, 'PARTICIPANT_1', 1, submit, apply, fail); // rapid click before rerender
-    assert.equal(current.participant1Score, winningPoints); assert.equal(current.status, 'LIVE');
+    assert.equal(current.participant1Score, winningPoints + 2); assert.equal(current.status, 'LIVE');
     await new Promise(resolve => setTimeout(resolve, 0));
-    assert.equal(submitted, 1); assert.equal(current.status, 'LIVE');
-  }
-  console.log('PASS: fixture controls, default filter, immutable createdAt ordering, repeat render and optimistic 15/21/30 ceilings');
+    assert.equal(submitted, 2); assert.equal(current.participant1Score, winningPoints + 2); assert.equal(current.status, 'LIVE');
 
+    let decrements = 0;
+    const aboveTarget = { ...match, id: `down-${winningPoints}`, participant1Score: winningPoints + 2 };
+    queue.enqueue(aboveTarget, 'PARTICIPANT_1', -1, async () => { decrements++; return { ...aboveTarget, participant1Score: winningPoints + 1 }; }, apply, fail);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(decrements, 1); assert.equal(current.participant1Score, winningPoints + 1);
+    let zeroSubmits = 0;
+    queue.enqueue({ ...aboveTarget, id: `zero-${winningPoints}`, participant1Score: 0 }, 'PARTICIPANT_1', -1, async () => { zeroSubmits++; return aboveTarget; }, apply, fail);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(zeroSubmits, 0);
+  }
+  console.log('PASS: fixture controls, default filter, immutable createdAt ordering, repeat render and optimistic scoring beyond 15/21/30 targets');

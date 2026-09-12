@@ -15,7 +15,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
-import { canShowMatchMutation, getCompletionBlockedReason } from '@/features/matches/utils/matchLifecycle'
+import { canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const CategoryFixturePage = () => {
@@ -455,7 +455,7 @@ const CategoryFixturePage = () => {
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={!match.winningPoints || match.participant1Score >= match.winningPoints}
+                            disabled={!match.winningPoints}
                             title="Increase score"
                             aria-label="Increase participant 1 score"
                           >
@@ -472,7 +472,7 @@ const CategoryFixturePage = () => {
                 )}
 
                 {(match.status === 'LIVE' || match.status === 'COMPLETED') && (
-                  <p className={`mt-2 text-xs font-semibold ${match.winningPoints ? 'text-blue-700' : 'text-amber-700'}`}>{match.winningPoints ? `Playing to ${match.winningPoints}` : 'Winning points unavailable'}</p>
+                  <p className={`mt-2 text-xs font-semibold ${match.winningPoints ? 'text-blue-700' : 'text-amber-700'}`}>{match.winningPoints ? `Playing to ${match.winningPoints} · Win by 2` : 'Winning points unavailable'}</p>
                 )}
 
                 <div className="flex justify-between items-start mt-2">
@@ -520,7 +520,7 @@ const CategoryFixturePage = () => {
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={!match.winningPoints || match.participant2Score >= match.winningPoints}
+                            disabled={!match.winningPoints}
                             title="Increase score"
                             aria-label="Increase participant 2 score"
                           >
@@ -560,6 +560,7 @@ const CategoryFixturePage = () => {
                 {/* Complete Match Button */}
                 {canCompleteMatch(match) && (
                   <div className="mt-3">
+                    <p className={`mb-2 text-xs font-semibold ${getCompletionBlockedReason(match) ? 'text-amber-700' : 'text-emerald-700'}`}>{getMatchCompletionStatus(match)}</p>
                     <button
                       type="button"
                       onClick={() => handleCompleteMatch(match.id)}
@@ -569,7 +570,6 @@ const CategoryFixturePage = () => {
                     >
                       {isCompletingMatch === match.id ? 'Completing...' : 'Complete Match'}
                     </button>
-                    {getCompletionBlockedReason(match) && <p className="mt-1 text-xs text-amber-700">{getCompletionBlockedReason(match)}</p>}
                   </div>
                 )}
 
