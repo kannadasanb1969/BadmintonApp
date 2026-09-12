@@ -23,7 +23,7 @@ const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
   const [developmentHint, setDevelopmentHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { login } = useAuthStore()
+  const { login, sessionMessage } = useAuthStore()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -66,7 +66,7 @@ const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
     {!adminMode && <div className="reference-role-group"><p>I'm here as a</p><div className="reference-role-list">{roles.map((item) => <label key={item.value} className="group relative cursor-pointer"><input type="radio" value={item.value} checked={role === item.value} onChange={() => { setRole(item.value); resetOtp(); setError(null) }} className="peer sr-only" /><span className="reference-role-card"><img src={item.image} alt="" /><span className="reference-role-copy"><i className="reference-radio" /><span><strong>{item.label}</strong><small>{item.detail}</small></span></span><b className="reference-role-arrow">›</b></span></label>)}</div></div>}
     {otpRequested && <div className="reference-otp-panel"><label htmlFor="otp">{adminMode ? 'Admin Verification' : 'Enter five-digit OTP'}</label><input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />{developmentHint && <p>{developmentHint}</p>}</div>}
     {!otpRequested ? <button type="button" onClick={request} disabled={loading} className="reference-request-button">{loading ? (adminMode ? 'Requesting Admin OTP...' : 'Requesting...') : (adminMode ? 'Request Admin OTP  →' : 'Request OTP  →')}</button> : <div className="space-y-3"><button type="submit" disabled={loading} className="reference-request-button">{loading ? 'Verifying...' : 'Verify OTP  →'}</button><button type="button" onClick={request} disabled={loading} className="reference-resend">Resend OTP</button></div>}
-    {error && <p role="alert" className="reference-login-error">{error}</p>}
+    {(error || sessionMessage) && <p role="alert" className="reference-login-error">{error || sessionMessage}</p>}
   </form></div>
 }
 
