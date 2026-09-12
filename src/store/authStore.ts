@@ -6,18 +6,25 @@ import { useNotificationStore } from '@/features/notifications/services/notifica
 import { isAccessTokenExpired } from '@/features/auth/utils/accessToken'
 
 interface AuthStore extends AuthState {
+  hasHydrated: boolean
   sessionMessage: string | null
   login: (user: User, accessToken?: string) => void
   logout: () => void
   expireSession: () => void
+  setHasHydrated: (hasHydrated: boolean) => void
+}
+
+type PersistedAuthState = Pick<AuthStore, 'user' | 'isAuthenticated' | 'accessToken'> & {
+  sessionMessage?: string | null
 }
 
 export const useAuthStore = create<AuthStore>()(
-  persist(
+  persist<AuthStore, [], [], PersistedAuthState>(
     (set) => ({
       user: null,
       isAuthenticated: false,
       accessToken: null,
+      hasHydrated: false,
       sessionMessage: null,
       login: (user: User, accessToken?: string) => set((state) => ({
         user,
@@ -36,18 +43,33 @@ export const useAuthStore = create<AuthStore>()(
         set({ user: null, isAuthenticated: false, accessToken: null, sessionMessage: 'Your session expired. Please log in again.' })
         usePlayerProfileStore.getState().clearProfile()
         useNotificationStore.getState().clearAllNotifications()
-      }
+      },
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
     }),
     {
       name: 'badminton-auth',
       version: 1,
       migrate: (persistedState) => {
         const state = persistedState as Partial<AuthStore>
-        if (!state.isAuthenticated) return { ...state, sessionMessage: null }
-        if (!state.accessToken || isAccessTokenExpired(state.accessToken)) {
-          return { ...state, user: null, isAuthenticated: false, accessToken: null, sessionMessage: 'Your session expired. Please log in again.' }
+        if (!state.isAuthenticated) {
+          return { user: null, isAuthenticated: false, accessToken: null, sessionMessage: null }
         }
-        return { ...state, sessionMessage: null }
+        if (!state.user || !state.accessToken || isAccessTokenExpired(state.accessToken)) {
+          return { user: null, isAuthenticated: false, accessToken: null, sessionMessage: 'Your session expired. Please log in again.' }
+        }
+        return { user: state.user, isAuthenticated: true, accessToken: state.accessToken, sessionMessage: null }
+      },
+      partialize: ({ user, isAuthenticated, accessToken }) => ({
+        user,
+        isAuthenticated,
+        accessToken,
+        sessionMessage: null,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.isAuthenticated && isAccessTokenExpired(state.accessToken)) {
+          state.expireSession()
+        }
+        state?.setHasHydrated(true)
       },
     }
   )

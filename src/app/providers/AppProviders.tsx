@@ -16,7 +16,10 @@ import { notificationApiService } from '@/features/notifications/services/notifi
 import { queryClient } from '@/api/queryClient'
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
+  const hasHydrated = useAuthStore((state) => state.hasHydrated)
+
   useEffect(() => {
+    if (!hasHydrated) return
     void hydrateAndSyncDomainData()
     if (isExplicitMockApiMode) return
 
@@ -52,7 +55,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         // Preserve the persisted session on transient network failures. Login and
         // profile mutations still surface the Worker error to the calling UI.
       })
-  }, [])
+  }, [hasHydrated])
   return (
     <QueryClientProvider client={queryClient}>
       {children}
