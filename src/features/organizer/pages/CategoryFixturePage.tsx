@@ -15,6 +15,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
+import { canShowMatchMutation, getCompletionBlockedReason } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const CategoryFixturePage = () => {
@@ -329,22 +330,12 @@ const CategoryFixturePage = () => {
 
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'SCHEDULED' &&
-      match.participant1 !== null &&
-      match.participant2 !== null &&
-      canManageFixture
-    )
+    return canShowMatchMutation(fixture?.status, match, 'SCHEDULED', canManageFixture)
   }
 
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'LIVE' &&
-      canManageFixture
-    )
+    return canShowMatchMutation(fixture?.status, match, 'LIVE', canManageFixture)
   }
 
   // Helper function to check if score can be undone
@@ -360,14 +351,7 @@ const CategoryFixturePage = () => {
 
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'LIVE' &&
-      match.participant1 !== null &&
-      match.participant2 !== null &&
-      match.participant1Score !== match.participant2Score && // Not tied
-      canManageFixture
-    )
+    return canShowMatchMutation(fixture?.status, match, 'LIVE', canManageFixture)
   }
 
   const participantLabel = (participant: FixtureMatch['participant1']) => {
@@ -419,7 +403,7 @@ const CategoryFixturePage = () => {
                 </div>
 
                 {/* Participant 1 Score Controls */}
-                {canStartMatch(match) && !match.participant1Score && !match.participant2Score ? (
+                {canStartMatch(match) ? (
                   // A score target is selected per match and only persisted when it starts.
                   <div className="match-start-panel mt-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p><div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${selectedWinningPoints(match) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{selectedWinningPoints(match) === points ? '✓ ' : ''}{points}</button>)}</div>{!selectedWinningPoints(match) && <p className="mt-2 text-xs text-amber-700">Select winning points to start the match.</p>}
@@ -487,8 +471,8 @@ const CategoryFixturePage = () => {
                   </div>
                 )}
 
-                {(match.status === 'LIVE' || match.status === 'COMPLETED') && match.winningPoints && (
-                  <p className="mt-2 text-xs font-semibold text-blue-700">Playing to {match.winningPoints}</p>
+                {(match.status === 'LIVE' || match.status === 'COMPLETED') && (
+                  <p className={`mt-2 text-xs font-semibold ${match.winningPoints ? 'text-blue-700' : 'text-amber-700'}`}>{match.winningPoints ? `Playing to ${match.winningPoints}` : 'Winning points unavailable'}</p>
                 )}
 
                 <div className="flex justify-between items-start mt-2">
@@ -574,23 +558,18 @@ const CategoryFixturePage = () => {
                 )}
 
                 {/* Complete Match Button */}
-                {canCompleteMatch(match) && !isCompletingMatch && (
-                  <div className="flex justify-between items-start mt-2">
-                    {isCompletingMatch === match.id ? (
-                      <button
-                        onClick={() => handleCompleteMatch(match.id)}
-                        className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                      >
-                        Completing...
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleCompleteMatch(match.id)}
-                        className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                      >
-                        Complete Match
-                      </button>
-                    )}
+                {canCompleteMatch(match) && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleCompleteMatch(match.id)}
+                      disabled={isCompletingMatch === match.id || Boolean(getCompletionBlockedReason(match))}
+                      title={getCompletionBlockedReason(match) ?? 'Complete this match'}
+                      className="w-full rounded-lg bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                    >
+                      {isCompletingMatch === match.id ? 'Completing...' : 'Complete Match'}
+                    </button>
+                    {getCompletionBlockedReason(match) && <p className="mt-1 text-xs text-amber-700">{getCompletionBlockedReason(match)}</p>}
                   </div>
                 )}
 

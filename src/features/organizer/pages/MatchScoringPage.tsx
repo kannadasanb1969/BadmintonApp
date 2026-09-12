@@ -17,6 +17,7 @@ import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
+import { canShowMatchMutation, getCompletionBlockedReason, validWinningPoints } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const MatchScoringPage = () => {
@@ -138,22 +139,12 @@ const MatchScoringPage = () => {
 
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'SCHEDULED' &&
-      match.participant1 !== null &&
-      match.participant2 !== null &&
-      isOrganizer
-    )
+    return canShowMatchMutation(fixture?.status, match, 'SCHEDULED', isOrganizer)
   }
 
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'LIVE' &&
-      isOrganizer
-    )
+    return canShowMatchMutation(fixture?.status, match, 'LIVE', isOrganizer)
   }
 
   // Helper function to check if score can be undone
@@ -170,18 +161,12 @@ const MatchScoringPage = () => {
 
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'LIVE' &&
-      match.participant1 !== null &&
-      match.participant2 !== null &&
-      match.participant1Score !== match.participant2Score && // Not tied
-      isOrganizer
-    )
+    return canShowMatchMutation(fixture?.status, match, 'LIVE', isOrganizer)
   }
-  const existingWinningPoints = match.winningPoints === 15 || match.winningPoints === 21 || match.winningPoints === 30 ? match.winningPoints : undefined
+  const existingWinningPoints = validWinningPoints(match.winningPoints)
   const winningPoints = existingWinningPoints
   const winningPointsForStart = selectedWinningPoints ?? existingWinningPoints
+  const completionBlockedReason = getCompletionBlockedReason(match)
   const handleWinningPointsChange = (points: 15 | 21 | 30) => {
     setSelectedWinningPoints(points)
   }
@@ -371,7 +356,7 @@ const MatchScoringPage = () => {
 
       <div className="space-y-4">
         {match.status === 'SCHEDULED' && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="flex items-start gap-3"><span className="text-3xl">🎯</span><div><h3 className="text-lg font-black text-slate-900">Winning Points</h3><p className="text-sm text-slate-500">Choose the score target before starting this match.</p></div></div><div className="mt-4 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleWinningPointsChange(points)} className={`rounded-xl px-3 py-3 text-sm font-black transition ${winningPointsForStart === points ? 'bg-blue-600 text-white shadow-lg' : 'border border-slate-200 bg-white text-slate-700 hover:border-blue-400'}`}>{winningPointsForStart === points ? '✓ ' : ''}{points} Points</button>)}</div>{!winningPointsForStart && <p className="mt-3 text-sm text-amber-700">Select winning points to start the match.</p>}</section>}
-        {(match.status === 'LIVE' || match.status === 'COMPLETED') && existingWinningPoints && <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">Playing to {existingWinningPoints}</p>}
+        {(match.status === 'LIVE' || match.status === 'COMPLETED') && <p className={`rounded-xl border px-4 py-3 text-sm font-bold ${existingWinningPoints ? 'border-blue-100 bg-blue-50 text-blue-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{existingWinningPoints ? `Playing to ${existingWinningPoints}` : 'Winning points unavailable'}</p>}
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-start">
             <span className="font-medium text-gray-700">Participant 1:</span>
@@ -387,8 +372,8 @@ const MatchScoringPage = () => {
           </div>
 
           {/* Participant 1 Score Controls */}
-          <div className="flex justify-between items-start mt-4">
-            {canStartMatch(match) && !match.participant1Score && !match.participant2Score ? (
+          <div className="mt-4 space-y-4">
+            {canStartMatch(match) ? (
               // Show start match button if match is scheduled and has participants
               <div className="flex justify-between items-start">
                 {isLoading ? (
@@ -468,8 +453,8 @@ const MatchScoringPage = () => {
             </span>
           </div>
 
-          {/* Participant 2 Score Controls */}
-          <div className="flex justify-between items-start mt-4">
+          {/* Participant 2 Score Controls and completion action stack on mobile. */}
+          <div className="mt-4 space-y-4">
             {!canScoreMatch(match) ? (
               // Scheduled and completed matches remain read-only.
               <div className="flex justify-between items-start">
@@ -545,29 +530,21 @@ const MatchScoringPage = () => {
             )}
 
             {/* Complete Match Button */}
-            {canCompleteMatch(match) && !isLoading && !showConfirmation && (
-              <div className="flex justify-between items-start mt-4">
-                {isLoading ? (
-                  <button
-                    onClick={() => {
-                      setConfirmationType('complete')
-                      setShowConfirmation(true)
-                    }}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                  >
-                    Completing...
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setConfirmationType('complete')
-                      setShowConfirmation(true)
-                    }}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                  >
-                    Complete Match
-                  </button>
-                )}
+            {canCompleteMatch(match) && !showConfirmation && (
+              <div className="mt-4 w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmationType('complete')
+                    setShowConfirmation(true)
+                  }}
+                  disabled={isLoading || Boolean(completionBlockedReason)}
+                  title={completionBlockedReason ?? 'Complete this match'}
+                  className="w-full rounded-lg bg-green-600 px-4 py-3 font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                >
+                  {isLoading ? 'Completing...' : 'Complete Match'}
+                </button>
+                {completionBlockedReason && <p className="mt-2 text-sm text-amber-700">{completionBlockedReason}</p>}
               </div>
             )}
 
