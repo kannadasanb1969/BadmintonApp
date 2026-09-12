@@ -17,7 +17,7 @@ export const AppIcon = ({ name, className = 'h-5 w-5' }: { name: AppIconName; cl
   return <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">{paths[name]}</svg>
 }
 
-export type MobileNavItem = { to: string; label: string; icon: AppIconName; match?: (pathname: string) => boolean }
+export type MobileNavItem = { to: string; label: string; mobileLabel?: string; icon: AppIconName; match?: (pathname: string) => boolean }
 
 export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount, onLogout }: { brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number; onLogout: () => void }) => {
   const { pathname } = useLocation()
@@ -57,7 +57,7 @@ export const MobileBottomNavigation = ({ items }: { items: MobileNavItem[] }) =>
     <nav className="mobile-bottom-navigation" aria-label="Primary navigation">
       {items.map((item) => {
         const active = item.match ? item.match(pathname) : pathname === item.to || pathname.startsWith(`${item.to}/`)
-        return <Link key={item.to} to={item.to} className={active ? 'is-active' : ''} aria-current={active ? 'page' : undefined}><AppIcon name={item.icon} /><span>{item.label}</span></Link>
+        return <Link key={item.to} to={item.to} aria-label={item.label} className={active ? 'is-active' : ''} aria-current={active ? 'page' : undefined}><AppIcon name={item.icon} /><span>{item.mobileLabel ?? item.label}</span></Link>
       })}
     </nav>
   )

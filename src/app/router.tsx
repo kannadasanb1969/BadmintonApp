@@ -1,3 +1,4 @@
+import FriendlyMatchesPage from '@/features/player/pages/FriendlyMatchesPage'
 import { createBrowserRouter } from 'react-router-dom'
 import HomePage from '@/pages/public/HomePage'
 import LoginPage from '@/pages/public/LoginPage'
@@ -128,6 +129,8 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      { path: 'entries', element: <PlayerRegistrationsPage /> },
+      { path: 'friendly-matches', element: <FriendlyMatchesPage /> },
       { path: 'fixtures', element: <PlayerFixturesPage /> },
       {
         path: 'players',
