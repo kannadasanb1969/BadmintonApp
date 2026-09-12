@@ -15,7 +15,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
-import { canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus } from '@/features/matches/utils/matchLifecycle'
+import { canIncrementMatchScore, canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const CategoryFixturePage = () => {
@@ -455,7 +455,7 @@ const CategoryFixturePage = () => {
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={!match.winningPoints}
+                            disabled={!canIncrementMatchScore(match)}
                             title="Increase score"
                             aria-label="Increase participant 1 score"
                           >
@@ -520,7 +520,7 @@ const CategoryFixturePage = () => {
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={!match.winningPoints}
+                            disabled={!canIncrementMatchScore(match)}
                             title="Increase score"
                             aria-label="Increase participant 2 score"
                           >

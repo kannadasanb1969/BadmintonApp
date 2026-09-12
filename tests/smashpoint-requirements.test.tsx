@@ -40,7 +40,7 @@ import { useOptimisticMatchScore } from '../src/features/matches/hooks/useOptimi
   function Harness() { queue = useOptimisticMatchScore(); return null; }
   renderToStaticMarkup(React.createElement(Harness));
   for (const winningPoints of [15, 21, 30]) {
-    const match = { id: String(winningPoints), status: 'LIVE', winningPoints, participant1Score: winningPoints, participant2Score: 10 };
+    const match = { id: String(winningPoints), status: 'LIVE', winningPoints, participant1Score: winningPoints, participant2Score: winningPoints };
     let current, submitted = 0;
     const submit = async () => { submitted++; return { ...match, participant1Score: winningPoints + submitted }; };
     const apply = value => { current = value; };
@@ -50,6 +50,18 @@ import { useOptimisticMatchScore } from '../src/features/matches/hooks/useOptimi
     assert.equal(current.participant1Score, winningPoints + 2); assert.equal(current.status, 'LIVE');
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(submitted, 2); assert.equal(current.participant1Score, winningPoints + 2); assert.equal(current.status, 'LIVE');
+
+    let frozenSubmits = 0;
+    const eligible = { ...match, id: `eligible-${winningPoints}`, participant1Score: winningPoints + 2 };
+    queue.enqueue(eligible, 'PARTICIPANT_1', 1, async () => { frozenSubmits++; return eligible; }, apply, fail);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(frozenSubmits, 0);
+
+    const corrected = { ...eligible, participant1Score: winningPoints + 1 };
+    let resumedSubmits = 0;
+    queue.enqueue(corrected, 'PARTICIPANT_1', 1, async () => { resumedSubmits++; return eligible; }, apply, fail);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(resumedSubmits, 1);
 
     let decrements = 0;
     const aboveTarget = { ...match, id: `down-${winningPoints}`, participant1Score: winningPoints + 2 };

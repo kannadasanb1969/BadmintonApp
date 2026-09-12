@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 
 import { FixtureMatch } from '@/features/fixtures/types/fixture.types'
+import { canIncrementMatchScore } from '@/features/matches/utils/matchLifecycle'
 
 type ScoreSide = 'PARTICIPANT_1' | 'PARTICIPANT_2'
 type ScoreAction = { id: number; side: ScoreSide; delta: 1 | -1 }
@@ -35,7 +36,10 @@ export const useOptimisticMatchScore = () => {
   ) => {
     const current = applyPendingActions(authoritative.current.get(match.id) ?? match, pending.current.get(match.id) ?? [])
     const currentScore = side === 'PARTICIPANT_1' ? current.participant1Score : current.participant2Score
-    if (current.status !== 'LIVE' || ![15, 21, 30].includes(current.winningPoints ?? 0) || (delta === -1 && currentScore <= 0)) return
+    if (current.status !== 'LIVE'
+      || ![15, 21, 30].includes(current.winningPoints ?? 0)
+      || (delta === -1 && currentScore <= 0)
+      || (delta === 1 && !canIncrementMatchScore(current))) return
 
     if (!authoritative.current.has(match.id)) authoritative.current.set(match.id, match)
     const action = { id: ++sequence.current, side, delta } as ScoreAction

@@ -17,7 +17,7 @@ import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
-import { canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus, validWinningPoints } from '@/features/matches/utils/matchLifecycle'
+import { canIncrementMatchScore, canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus, validWinningPoints } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const MatchScoringPage = () => {
@@ -164,7 +164,6 @@ const MatchScoringPage = () => {
     return canShowMatchMutation(fixture?.status, match, 'LIVE', isOrganizer)
   }
   const existingWinningPoints = validWinningPoints(match.winningPoints)
-  const winningPoints = existingWinningPoints
   const winningPointsForStart = selectedWinningPoints ?? existingWinningPoints
   const completionBlockedReason = getCompletionBlockedReason(match)
   const handleWinningPointsChange = (points: 15 | 21 | 30) => {
@@ -423,7 +422,7 @@ const MatchScoringPage = () => {
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_1', 1)}
                         className="w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        disabled={!winningPoints}
+                        disabled={!canIncrementMatchScore(match)}
                         title="Increase score"
                         aria-label="Increase participant 1 score"
                       >
@@ -492,7 +491,7 @@ const MatchScoringPage = () => {
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_2', 1)}
                         className="w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        disabled={!winningPoints}
+                        disabled={!canIncrementMatchScore(match)}
                         title="Increase score"
                         aria-label="Increase participant 2 score"
                       >

@@ -26,6 +26,12 @@ export const isMatchCompletionEligible = (
     && Math.abs(participant1Score - participant2Score) >= 2)
 }
 
+export const canIncrementMatchScore = (match: FixtureMatch): boolean => (
+  match.status === 'LIVE'
+  && Boolean(validWinningPoints(match.winningPoints))
+  && !isMatchCompletionEligible(match.participant1Score, match.participant2Score, match.winningPoints)
+)
+
 export const getMatchCompletionStatus = (match: FixtureMatch): string => {
   const target = validWinningPoints(match.winningPoints)
   if (!target) return 'Winning points are missing for this live match.'
