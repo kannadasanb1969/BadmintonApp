@@ -48,6 +48,12 @@ try {
 
 assert.equal(isTournamentCompleted(tournament, []), false)
 assert.equal(isTournamentCompleted(tournament, results), true)
+const enriched = { ...tournament, completionStatus: 'COMPLETED', categories: [{ ...category, completionStatus: 'COMPLETED', result: results[0] }] }
+assert.equal(isTournamentCompleted(enriched, []), true)
+assert.match(renderToStaticMarkup(<TournamentCardResults tournament={enriched} results={[]} />), /Karthik/)
+assert.equal(isTournamentCompleted({ ...enriched, completionStatus: 'IN_PROGRESS' }, results), false)
+assert.equal(completedCategoryResults({ ...tournament, categories: [{ ...category, completionStatus: 'IN_PROGRESS' }] }, results).length, 0)
+
 assert.equal(isTournamentCompleted({ ...tournament, categories: [category, { ...category, id: 'other' }] }, results), false)
 assert.equal(completedCategoryResults(tournament, [{ ...results[0], completedAt: 'invalid' }]).length, 0)
 const doubles = { ...tournament, id: 'd', name: 'Completed Doubles', categories: [{ ...category, eventType: 'DOUBLES' }] }

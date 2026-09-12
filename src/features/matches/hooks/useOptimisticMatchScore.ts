@@ -8,10 +8,10 @@ type ScoreAction = { id: number; side: ScoreSide; delta: 1 | -1 }
 const applyPendingActions = (match: FixtureMatch, actions: ScoreAction[]) => actions.reduce((current, action) => ({
   ...current,
   participant1Score: action.side === 'PARTICIPANT_1'
-    ? Math.max(0, current.participant1Score + action.delta)
+    ? Math.min(current.winningPoints ?? 0, Math.max(0, current.participant1Score + action.delta))
     : current.participant1Score,
   participant2Score: action.side === 'PARTICIPANT_2'
-    ? Math.max(0, current.participant2Score + action.delta)
+    ? Math.min(current.winningPoints ?? 0, Math.max(0, current.participant2Score + action.delta))
     : current.participant2Score,
 }), match)
 
@@ -33,8 +33,9 @@ export const useOptimisticMatchScore = () => {
     applyMatch: (next: FixtureMatch) => void,
     onError: (message: string) => void,
   ) => {
-    const currentScore = side === 'PARTICIPANT_1' ? match.participant1Score : match.participant2Score
-    if (match.status !== 'LIVE' || (delta === -1 && currentScore <= 0)) return
+    const current = applyPendingActions(authoritative.current.get(match.id) ?? match, pending.current.get(match.id) ?? [])
+    const currentScore = side === 'PARTICIPANT_1' ? current.participant1Score : current.participant2Score
+    if (current.status !== 'LIVE' || ![15, 21, 30].includes(current.winningPoints ?? 0) || (delta === -1 && currentScore <= 0) || (delta === 1 && currentScore >= current.winningPoints!)) return
 
     if (!authoritative.current.has(match.id)) authoritative.current.set(match.id, match)
     const action = { id: ++sequence.current, side, delta } as ScoreAction

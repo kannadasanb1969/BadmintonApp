@@ -42,6 +42,7 @@ const MatchScoringPage = () => {
   const [selectedWinningPoints, setSelectedWinningPoints] = useState<15 | 21 | 30 | undefined>()
 
   useEffect(() => {
+    setSelectedWinningPoints(undefined)
     // Fetch tournament, category, fixture, and match if not already loaded
     if (tournamentId && categoryId && matchId) {
       const fetchData = async () => {
@@ -166,7 +167,7 @@ const MatchScoringPage = () => {
     )
   }
   const existingWinningPoints = match.winningPoints === 15 || match.winningPoints === 21 || match.winningPoints === 30 ? match.winningPoints : undefined
-  const winningPoints = existingWinningPoints ?? 21
+  const winningPoints = existingWinningPoints
   const winningPointsForStart = selectedWinningPoints ?? existingWinningPoints
   const handleWinningPointsChange = (points: 15 | 21 | 30) => {
     setSelectedWinningPoints(points)
@@ -424,7 +425,7 @@ const MatchScoringPage = () => {
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_1', 1)}
                         className="w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        disabled={isExplicitMockApiMode && match.participant1Score >= winningPoints}
+                        disabled={!winningPoints || match.participant1Score >= winningPoints}
                         title="Increase score"
                         aria-label="Increase participant 1 score"
                       >
@@ -493,7 +494,7 @@ const MatchScoringPage = () => {
                       <button
                         onClick={() => handleUpdateScore('PARTICIPANT_2', 1)}
                         className="w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                        disabled={isExplicitMockApiMode && match.participant2Score >= winningPoints}
+                        disabled={!winningPoints || match.participant2Score >= winningPoints}
                         title="Increase score"
                         aria-label="Increase participant 2 score"
                       >

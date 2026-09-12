@@ -216,7 +216,8 @@ export const useFixtureStore = create<FixtureStoreState>()(
         }
 
         const match = fixture.matches[matchIndex];
-        const winningPoints = match.winningPoints ?? 21;
+        const winningPoints = match.winningPoints;
+        if (winningPoints !== 15 && winningPoints !== 21 && winningPoints !== 30) throw new Error('Select valid winning points before scoring');
         // Only allow scoring live matches
         if (match.status !== MatchStatus.LIVE) {
           throw new Error('Only live matches can be scored');

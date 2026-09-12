@@ -1,3 +1,4 @@
+import { tournamentService } from '@/features/tournaments/services/tournamentService'
 import { filterPlayerTournaments, tournamentListStatus, TournamentListStatus } from '@/features/player/utils/tournamentListFilters'
 import { useResultStore } from '@/features/fixtures/store/resultStore'
 import { resultService } from '@/features/results/services/resultService'
@@ -18,8 +19,30 @@ const PlayerTournamentListPage = () => {
 
   useEffect(() => {
     let active = true
-    void resultService.getResults().catch(() => { if (active) setResultsError(true) })
-    return () => { active = false }
+    let refreshing = false
+    const refresh = async () => {
+      if (refreshing || document.visibilityState === 'hidden') return
+      refreshing = true
+      try {
+        const latest = await tournamentService.getTournaments()
+        // Older servers can still use the bulk result fallback.
+        if (latest.some(tournament => tournament.completionStatus === undefined)) await resultService.getResults()
+        if (active) setResultsError(false)
+      } catch {
+        if (active) setResultsError(true)
+      } finally { refreshing = false }
+    }
+    void refresh()
+    const interval = window.setInterval(() => { void refresh() }, 10000)
+    const onFocus = () => { void refresh() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
   }, [])
 
   const publishedTournaments = useMemo(() => filterPlayerTournaments(tournaments, results, query, eventType, status),
