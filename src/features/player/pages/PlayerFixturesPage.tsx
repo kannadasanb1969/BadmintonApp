@@ -11,6 +11,7 @@ import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { teamService } from '@/features/teams/services/teamService'
 import { tournamentService } from '@/features/tournaments/services/tournamentService'
+import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const PlayerFixturesPage = () => {
   const navigate = useNavigate()
@@ -66,31 +67,35 @@ const PlayerFixturesPage = () => {
       (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
   }, [fixtures, profile, registrations, requestedCategoryId, requestedTournamentId, teams])
 
-  const liveFixtureIds = useMemo(
-    () => playerFixtures
-      .filter((fixture) => fixture.matches.some((match) => match.status === 'LIVE'))
-      .map((fixture) => fixture.id),
+  const realtimeMatchIds = useMemo(
+    () => playerFixtures.flatMap(fixture => fixture.matches
+      .filter(match => match.status === 'SCHEDULED' || match.status === 'LIVE')
+      .map(match => match.id)),
     [playerFixtures],
   )
 
+  const refetchVisibleFixtures = () => Promise.all(playerFixtures.map(fixture => fixtureService.getFixture(fixture.id)))
+  const { allConnected } = useMatchLiveUpdates(realtimeMatchIds, { refetch: refetchVisibleFixtures })
+
   useEffect(() => {
-    if (liveFixtureIds.length === 0) return
+    if (playerFixtures.length === 0) return
 
     let cancelled = false
     const refreshLiveFixtures = () => {
       if (cancelled || document.visibilityState === 'hidden') return
       // Individual fixture reads keep the live refresh scoped to this player's
       // currently visible fixtures and do not trigger the initial-page loader.
-      void Promise.all(liveFixtureIds.map((fixtureId) => fixtureService.getFixture(fixtureId))).catch(() => undefined)
+      void refetchVisibleFixtures().catch(() => undefined)
     }
 
-    refreshLiveFixtures()
-    const timer = window.setInterval(refreshLiveFixtures, 2000)
+    const hasLiveMatch = playerFixtures.some(fixture => fixture.matches.some(match => match.status === 'LIVE'))
+    const interval = allConnected ? 45_000 : hasLiveMatch ? 4_000 : 8_000
+    const timer = window.setInterval(refreshLiveFixtures, interval)
     return () => {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [liveFixtureIds.join(',')])
+  }, [allConnected, playerFixtures.map(fixture => `${fixture.id}:${fixture.updatedAt}`).join(',')])
 
   if (!profile) return <div className="rounded-2xl bg-white p-8 text-center shadow-sm"><p className="text-lg font-bold">Complete your profile to view fixtures.</p><button onClick={() => navigate('/player/profile')} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Complete profile</button></div>
 

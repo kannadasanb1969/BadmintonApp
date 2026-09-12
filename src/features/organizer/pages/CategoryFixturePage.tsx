@@ -15,6 +15,7 @@ import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelper
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
+import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const CategoryFixturePage = () => {
   const { tournamentId, categoryId } = useParams<{ tournamentId: string; categoryId: string }>()
@@ -42,8 +43,27 @@ const CategoryFixturePage = () => {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [entriesLoading, setEntriesLoading] = useState(true)
   const entryCount = registrations.length
-  const { enqueue: enqueueScore } = useOptimisticMatchScore()
+  const { enqueue: enqueueScore, reconcile: reconcileScore } = useOptimisticMatchScore()
   const [winningPointSelections, setWinningPointSelections] = useState<Record<string, 15 | 21 | 30>>({})
+
+  const realtimeMatchIds = (fixture?.matches ?? [])
+    .filter(match => match.status === 'SCHEDULED' || match.status === 'LIVE')
+    .map(match => match.id)
+  useMatchLiveUpdates(realtimeMatchIds, {
+    refetch: () => fixture ? fixtureService.getFixture(fixture.id).then(updated => { if (updated) setFixture(updated) }) : undefined,
+    onEvent: event => setFixture(current => current ? {
+      ...current,
+      updatedAt: event.updatedAt ?? current.updatedAt,
+      matches: current.matches.map(match => match.id === event.matchId ? reconcileScore({
+        ...match,
+        status: event.status,
+        participant1Score: event.participant1Score,
+        participant2Score: event.participant2Score,
+        ...(event.winningPoints ? { winningPoints: event.winningPoints } : {}),
+        ...(event.winnerParticipantId !== undefined ? { winnerId: event.winnerParticipantId, winnerParticipantId: event.winnerParticipantId, winnerParticipantName: event.winnerParticipantName, winnerParticipantCode: event.winnerParticipantCode } : {}),
+      }) : match),
+    } : current),
+  })
 
   const refreshCategoryData = async (refreshTournament = true) => {
     if (!tournamentId || !categoryId) return

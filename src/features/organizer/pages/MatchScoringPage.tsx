@@ -17,6 +17,7 @@ import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
+import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const MatchScoringPage = () => {
   const { tournamentId, categoryId, matchId } = useParams<{ tournamentId: string; categoryId: string; matchId: string }>()
@@ -38,8 +39,20 @@ const MatchScoringPage = () => {
   const [match, setMatch] = useState<FixtureMatch | null>(null)
   const [showConfirmation, setShowConfirmation] = useState<boolean>(false)
   const [confirmationType, setConfirmationType] = useState<'complete' | null>(null)
-  const { enqueue: enqueueScore } = useOptimisticMatchScore()
+  const { enqueue: enqueueScore, reconcile: reconcileScore } = useOptimisticMatchScore()
   const [selectedWinningPoints, setSelectedWinningPoints] = useState<15 | 21 | 30 | undefined>()
+
+  useMatchLiveUpdates(matchId ? [matchId] : [], {
+    refetch: () => matchId ? matchService.getMatch(matchId).then(updated => { if (updated) setMatch(updated) }) : undefined,
+    onEvent: event => setMatch(current => current && current.id === event.matchId ? reconcileScore({
+      ...current,
+      status: event.status,
+      participant1Score: event.participant1Score,
+      participant2Score: event.participant2Score,
+      ...(event.winningPoints ? { winningPoints: event.winningPoints } : {}),
+      ...(event.winnerParticipantId !== undefined ? { winnerId: event.winnerParticipantId, winnerParticipantId: event.winnerParticipantId, winnerParticipantName: event.winnerParticipantName, winnerParticipantCode: event.winnerParticipantCode } : {}),
+    }) : current),
+  })
 
   useEffect(() => {
     setSelectedWinningPoints(undefined)

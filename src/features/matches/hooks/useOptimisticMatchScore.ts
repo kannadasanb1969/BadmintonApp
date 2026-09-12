@@ -71,5 +71,14 @@ export const useOptimisticMatchScore = () => {
     })
   }
 
-  return { enqueue }
+  // Realtime payloads are absolute server snapshots. Preserve clicks that are
+  // still queued locally while reconciling the authoritative base score.
+  const reconcile = (match: FixtureMatch): FixtureMatch => {
+    const actions = pending.current.get(match.id) ?? []
+    if (actions.length === 0) return match
+    authoritative.current.set(match.id, match)
+    return applyPendingActions(match, actions)
+  }
+
+  return { enqueue, reconcile }
 }
