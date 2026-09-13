@@ -61,6 +61,13 @@ const ExistingPartnerSearchPage = () => {
   const [checkingPartnerEligibility, setCheckingPartnerEligibility] = useState<boolean>(false)
   const [partnerEligibilityResult, setPartnerEligibilityResult] = useState<EligibilityResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadingCategoryPhase, setLoadingCategoryPhase] = useState(true)
+
+  useEffect(() => {
+    if (tournamentId) {
+      void useTournamentStore.getState().fetchTournamentById(tournamentId).finally(() => setLoadingCategoryPhase(false))
+    }
+  }, [tournamentId])
 
   useEffect(() => {
     if (searchQuery) {
@@ -144,6 +151,10 @@ const ExistingPartnerSearchPage = () => {
     )
   }
 
+  if (loadingCategoryPhase) {
+    return <div className="text-center py-8">Loading registration status...</div>
+  }
+
   if (!hasProfile || !currentProfile) {
     return (
       <div className="p-4">
@@ -205,6 +216,14 @@ const ExistingPartnerSearchPage = () => {
         <p className="text-red-500">
           Invalid category type for doubles registration
         </p>
+      </div>
+    )
+  }
+
+  if (category.registrationPhase === 'CLOSED') {
+    return (
+      <div className="p-4">
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">Registration Closed</p>
       </div>
     )
   }

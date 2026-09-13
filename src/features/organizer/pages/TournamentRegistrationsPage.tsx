@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuthStore } from '@/store/authStore'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
@@ -25,6 +26,8 @@ const TournamentRegistrationsPage = () => {
 
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [closingCategory, setClosingCategory] = useState<string | null>(null)
+  const currentUser = useAuthStore(state => state.user)
 
   useEffect(() => {
     // Fetch tournament if not already loaded
@@ -64,9 +67,17 @@ const TournamentRegistrationsPage = () => {
   // Since we don't have auth context here, we'll assume the route protection is enough.
 
   const handleCloseRegistration = async (categoryId: string) => {
-    // We'll implement this in the category page
-    // For now, we'll just navigate to the category page and let the user close from there
-    navigate(`/organizer/tournaments/${tournamentId}/categories/${categoryId}`)
+    if (!currentUser || !tournamentId || isLoading) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      await useTournamentStore.getState().closeCategoryRegistration(currentUser.id, tournamentId, categoryId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to close registration')
+    } finally {
+      setIsLoading(false)
+      setClosingCategory(null)
+    }
   }
 
   const handleGenerateFixture = async (categoryId: string) => {
@@ -94,6 +105,13 @@ const TournamentRegistrationsPage = () => {
         </div>
       )}
 
+      {closingCategory && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <p>Close registration for {tournament.categories.find(category => category.id === closingCategory)?.name}? New entries will no longer be accepted.</p>
+        <div className="mt-3 flex gap-3">
+          <button type="button" disabled={isLoading} onClick={() => handleCloseRegistration(closingCategory)} className="rounded bg-rose-600 px-4 py-2 text-white disabled:opacity-50">Confirm Close</button>
+          <button type="button" disabled={isLoading} onClick={() => setClosingCategory(null)} className="rounded bg-slate-200 px-4 py-2 text-slate-900">Cancel</button>
+        </div>
+      </div>}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-3">
           Manage Registrations
@@ -117,9 +135,9 @@ const TournamentRegistrationsPage = () => {
               </div>
               <div className="space-x-3">
                 <button
-                  onClick={() => handleCloseRegistration(category.id)}
+                  onClick={() => setClosingCategory(category.id)}
                   className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
-                  disabled={category.registrationPhase === 'CLOSED'}
+                  disabled={isLoading || category.registrationPhase === 'CLOSED'}
                 >
                   {category.registrationPhase === 'CLOSED' ? 'Closed' : 'Close Registration'}
                 </button>

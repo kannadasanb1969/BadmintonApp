@@ -1,3 +1,4 @@
+import FriendlyMatchesPage from '@/features/player/pages/FriendlyMatchesPage'
 import { createBrowserRouter } from 'react-router-dom'
 import HomePage from '@/pages/public/HomePage'
 import LoginPage from '@/pages/public/LoginPage'
@@ -25,6 +26,7 @@ import ExistingPartnerSearchPage from '@/features/player/pages/ExistingPartnerSe
 import GuestPartnerFormPage from '@/features/player/pages/GuestPartnerFormPage'
 import DoubleRegistrationConfirmationPage from '@/features/player/pages/DoubleRegistrationConfirmationPage'
 import PlayerFixturesPage from '@/features/player/pages/PlayerFixturesPage'
+import PlayersPage from '@/features/player/pages/PlayersPage'
 import TournamentRegistrationsPage from '@/features/organizer/pages/TournamentRegistrationsPage'
 import MatchScoringPage from '@/features/organizer/pages/MatchScoringPage'
 import CategoryFixturePage from '@/features/organizer/pages/CategoryFixturePage'
@@ -127,7 +129,19 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      { path: 'entries', element: <PlayerRegistrationsPage /> },
+      { path: 'friendly-matches', element: <FriendlyMatchesPage /> },
       { path: 'fixtures', element: <PlayerFixturesPage /> },
+      {
+        path: 'players',
+        element: (
+          <ProtectedRoute>
+            <RoleRoute roles={[ 'PLAYER' ]}>
+              <PlayersPage />
+            </RoleRoute>
+          </ProtectedRoute>
+        ),
+      },
       {
         path: 'notifications',
         element: (

@@ -3,7 +3,6 @@ import { GuestPlayer } from '@/features/player/types/guest.player.types';
 import { Tournament, TournamentCategory } from '@/features/tournaments/types/tournament.types';
 import { EligibilityReason, EligibilityResult } from '@/features/eligibility/types/eligibility.types';
 import { MedalHistory } from '@/features/medals/types/medalHistory.types';
-import { normalizeTimeValue } from '@/features/tournaments/utils/tournamentHelpers';
 
 /**
  * Calculate age from date of birth (YYYY-MM-DD)
@@ -39,19 +38,6 @@ export const isProfileActive = (profile: PlayerProfile | GuestPlayer | null): bo
  */
 export const isTournamentPublished = (tournament: Tournament): boolean => {
   return tournament.status === 'PUBLISHED';
-};
-
-/**
- * Check if registration is open (current date/time before registration closing)
- */
-export const isRegistrationOpen = (tournament: Tournament): boolean => {
-  const now = new Date();
-  const closeDate = new Date(`${tournament.registrationCloseDate}T00:00:00`);
-  const closeTime = normalizeTimeValue(tournament.registrationCloseTime);
-  if (Number.isNaN(closeDate.getTime()) || !closeTime) return false;
-  const [hours, minutes] = closeTime.split(':').map(Number);
-  closeDate.setHours(hours, minutes, 0, 0);
-  return now < closeDate;
 };
 
 /**
@@ -225,15 +211,9 @@ export const evaluatePlayerEligibility = (
     return { eligible: false, reasons };
   }
 
-  // 4. Check registration closing (date/time based)
-  if (!isRegistrationOpen(tournament)) {
-    reasons.push({
-      code: 'REGISTRATION_CLOSED',
-      message: 'Registration is closed',
-    });
-    // We can still check other rules? But if closed, cannot register.
-    return { eligible: false, reasons };
-  }
+  // Category registrationPhase is provided by the Worker and is the frontend
+  // source of truth. Do not derive a conflicting closed state from a cached
+  // tournament date/time; the registration endpoint still enforces closure.
 
   // 4. Check age
   reasons.push(...checkAgeEligibility(profile, category));
@@ -249,7 +229,10 @@ export const evaluatePlayerEligibility = (
   reasons.push(...checkBeginnerEligibility(profile, category));
 
   // 8. Check category capacity (if maxTeams exists and we have current registrations)
-  if (category.maxTeams !== undefined && currentRegistrations >= category.maxTeams) {
+  const maxTeams = typeof category.maxTeams === 'number' && category.maxTeams > 0
+    ? category.maxTeams
+    : undefined;
+  if (maxTeams !== undefined && currentRegistrations >= maxTeams) {
     reasons.push({
       code: 'CATEGORY_FULL',
       message: 'Category is full',

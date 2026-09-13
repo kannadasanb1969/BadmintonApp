@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import { isAccessTokenExpired } from '@/features/auth/utils/accessToken'
 
 export interface ApiEnvelope<T> {
   success: boolean
@@ -16,6 +17,21 @@ export class ApiError extends Error {
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
 export const isExplicitMockApiMode = import.meta.env.VITE_API_MODE === 'mock'
+
+/**
+ * Resolves the token at request time, rather than when this module is loaded.
+ * That keeps the shared HTTP client in sync across login, logout, re-login,
+ * and persisted-session hydration.
+ */
+export const getCurrentAccessToken = (): string | null => {
+  const accessToken = useAuthStore.getState().accessToken
+  const normalizedToken = typeof accessToken === 'string' ? accessToken.trim() : ''
+  if (normalizedToken && isAccessTokenExpired(normalizedToken)) {
+    useAuthStore.getState().expireSession()
+    return null
+  }
+  return normalizedToken || null
+}
 
 export const unwrapApiData = <T>(payload: ApiEnvelope<T> | T): T => {
   if (payload && typeof payload === 'object' && 'success' in payload) {
@@ -47,7 +63,7 @@ const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use((config) => {
-  const accessToken = useAuthStore.getState().accessToken
+  const accessToken = getCurrentAccessToken()
   if (accessToken && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${accessToken}`
   }
@@ -59,7 +75,16 @@ apiClient.interceptors.response.use(
     response.data = unwrapApiData(response.data)
     return response
   },
-  (error) => Promise.reject(normalizeApiError(error)),
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const requestAuthorization = String(error.config?.headers?.Authorization ?? '')
+      const requestToken = requestAuthorization.startsWith('Bearer ') ? requestAuthorization.slice(7) : null
+      const currentToken = useAuthStore.getState().accessToken
+      // Ignore a late 401 from an older request after the user has logged in again.
+      if (currentToken && requestToken === currentToken) useAuthStore.getState().expireSession()
+    }
+    return Promise.reject(normalizeApiError(error))
+  },
 )
 
 export default apiClient

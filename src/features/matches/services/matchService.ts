@@ -9,6 +9,7 @@ import { useTeamStore } from '@/features/teams/store/teamStore';
 import { notificationService } from '@/features/notifications/services/notificationService';
 import apiClient, { isExplicitMockApiMode } from '@/api/apiClient';
 import { fixtureService } from '@/features/fixtures/services/fixtureService';
+import { isMatchCompletionEligible } from '@/features/matches/utils/matchLifecycle';
 
 
 export interface MatchService {
@@ -21,7 +22,8 @@ export interface MatchService {
     organizerId: string,
     tournamentId: string,
     categoryId: string,
-    matchId: string
+    matchId: string,
+    winningPoints: 15 | 21 | 30,
   ) => Promise<FixtureMatch | undefined>;
   updateScore: (
     organizerId: string,
@@ -62,9 +64,22 @@ const workerMatch = (raw: WorkerMatch): FixtureMatch => {
   return { ...existing, ...raw, participant1: findParticipant(raw.participant1Id) ?? existing?.participant1 ?? null, participant2: findParticipant(raw.participant2Id) ?? existing?.participant2 ?? null } as FixtureMatch;
 };
 
+const cacheWorkerMatch = (match: FixtureMatch): FixtureMatch => {
+  const fixtureStore = useFixtureStore.getState();
+  const fixture = fixtureStore.getFixtureById(match.fixtureId);
+  if (!fixture) return match;
+
+  const matches = fixture.matches.map((existing) => (
+    existing.id === match.id ? { ...existing, ...match } : existing
+  ));
+  fixtureStore.saveGeneratedFixture({ ...fixture, matches, updatedAt: new Date().toISOString() });
+  return matches.find((item) => item.id === match.id) ?? match;
+};
+
 const syncWorkerMatch = async (raw: WorkerMatch): Promise<FixtureMatch> => {
-  const fixture = await fixtureService.getFixture(raw.fixtureId);
-  return fixture?.matches.find((item) => item.id === raw.id) ?? workerMatch(raw);
+  // The mutation response is the authoritative, post-update score. Do not wait
+  // for a separate fixture read that can repopulate the cache with older data.
+  return cacheWorkerMatch(workerMatch(raw));
 };
 
 export const matchService: MatchService = {
@@ -125,10 +140,11 @@ export const matchService: MatchService = {
     organizerId: string,
     tournamentId: string,
     categoryId: string,
-    matchId: string
+    matchId: string,
+    winningPoints: 15 | 21 | 30,
   ): Promise<FixtureMatch | undefined> => {
     if (!isExplicitMockApiMode) {
-      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/start`, { requestedByUserId: organizerId })).data;
+      const data = (await apiClient.post<WorkerMatch>(`/api/matches/${matchId}/start`, { requestedByUserId: organizerId, winningPoints })).data;
       return syncWorkerMatch(data);
     }
     // Simulate API delay
@@ -177,6 +193,7 @@ export const matchService: MatchService = {
       throw new Error('Both participants must be present to start match');
     }
 
+    fixtureStore.setMatchWinningPoints(fixture.id, matchId, winningPoints);
     // Use explicit published match action
     return fixtureStore.startPublishedMatch(fixture.id, matchId);
   },
@@ -369,9 +386,8 @@ export const matchService: MatchService = {
       throw new Error('Both participants must be present to complete match');
     }
 
-    // Check for tie
-    if (match.participant1Score === match.participant2Score) {
-      throw new Error('Match cannot finish with a tied score');
+    if (!isMatchCompletionEligible(match.participant1Score, match.participant2Score, match.winningPoints)) {
+      throw new Error('Match requires the target score and a two-point lead');
     }
 
     // Determine winner

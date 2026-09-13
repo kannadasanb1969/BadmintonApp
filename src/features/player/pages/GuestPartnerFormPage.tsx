@@ -52,6 +52,8 @@ const GuestPartnerFormPage = () => {
   const [success, setSuccess] = useState<boolean>(false)
   const [name, setName] = useState<string>('')
   const [mobile, setMobile] = useState<string>('')
+  const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('')
+  const [loadingCategoryPhase, setLoadingCategoryPhase] = useState(true)
 
   useEffect(() => {
     // Validate that we have the required data in the route
@@ -60,12 +62,14 @@ const GuestPartnerFormPage = () => {
       return
     }
 
-    // Fetch tournament if not already loaded
+    // Always fetch the route's tournament so category registrationPhase is current.
     if (tournamentId && categoryId) {
       const fetchTournament = async () => {
         const tournamentStore = useTournamentStore.getState()
-        if (!tournamentStore.tournament || tournamentStore.tournament.id !== tournamentId) {
+        try {
           await tournamentStore.fetchTournamentById(tournamentId)
+        } finally {
+          setLoadingCategoryPhase(false)
         }
       }
       fetchTournament()
@@ -90,12 +94,16 @@ const GuestPartnerFormPage = () => {
       if (!name.trim() || !mobile.trim()) {
         throw new Error('Name and mobile number are required')
       }
+      if (!gender) {
+        throw new Error('Gender is required')
+      }
 
       // Create guest player with default values for missing fields
       const currentYear = new Date().getFullYear();
       const guestData = {
         fullName: name.trim(),
         mobile: mobile.trim(),
+        gender,
         dob: '2002-01-01',
         age: 24,
         location: '',
@@ -143,6 +151,10 @@ const GuestPartnerFormPage = () => {
         Error loading tournament: {tournamentError}
       </div>
     )
+  }
+
+  if (loadingCategoryPhase) {
+    return <div className="text-center py-8">Loading registration status...</div>
   }
 
   if (!hasProfile || !currentProfile) {
@@ -196,6 +208,14 @@ const GuestPartnerFormPage = () => {
     )
   }
 
+  if (category.registrationPhase === 'CLOSED') {
+    return (
+      <div className="p-4">
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">Registration Closed</p>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4">
       <div className="mb-6">
@@ -240,6 +260,23 @@ const GuestPartnerFormPage = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter full name"
           />
+        </div>
+        <div>
+          <label htmlFor="guest-gender" className="block text-sm font-medium text-gray-700 mb-2">
+            Gender <span aria-hidden="true">*</span>
+          </label>
+          <select
+            id="guest-gender"
+            value={gender}
+            onChange={(e) => setGender(e.target.value as 'MALE' | 'FEMALE' | 'OTHER' | '')}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">Select gender</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+            <option value="OTHER">Other</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
