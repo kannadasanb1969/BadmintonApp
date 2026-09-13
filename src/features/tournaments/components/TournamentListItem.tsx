@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom';
-import { Tournament, TournamentStatus } from '@/features/tournaments/types/tournament.types';
+import { Tournament } from '@/features/tournaments/types/tournament.types';
 import { displayRegistrationCount, getStatusLabel, formatDateDisplay, formatTimeDisplay } from '@/features/tournaments/utils/tournamentHelpers';
+import { isTournamentCompleted, TournamentCardResults } from '@/features/player/components/TournamentCardResults';
 
 interface TournamentListItemProps {
   tournament: Tournament;
 }
 
 const TournamentListItem = ({ tournament }: TournamentListItemProps) => {
-  const { label, color } = getStatusLabel(tournament.status);
+  const completed = isTournamentCompleted(tournament, []);
+  const workflowStatus = getStatusLabel(tournament.status);
+  const { label, color } = completed
+    ? { label: 'COMPLETED', color: 'bg-emerald-100 text-emerald-800' }
+    : workflowStatus;
   const registeredPlayers = displayRegistrationCount(tournament.registeredPlayerCount);
   const registeredTeams = displayRegistrationCount(tournament.registeredTeamCount);
   const isDoublesOnly = tournament.categories.length > 0 && tournament.categories.every(category => category.eventType === 'DOUBLES');
@@ -23,6 +28,13 @@ const TournamentListItem = ({ tournament }: TournamentListItemProps) => {
           {label}
         </span>
       </div>
+
+      {completed && (
+        <div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+          {tournament.categories.length > 1 && <p className="text-xs font-extrabold tracking-wider text-emerald-800">RESULTS</p>}
+          <TournamentCardResults tournament={tournament} results={[]} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 text-sm text-gray-700">
         <div>

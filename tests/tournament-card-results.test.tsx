@@ -9,6 +9,7 @@ import { useTournamentStore } from '../src/features/tournaments/store/tournament
 import Page from '../src/features/player/pages/PlayerTournamentListPage'
 import { completedCategoryResults, isTournamentCompleted, TournamentCardResults } from '../src/features/player/components/TournamentCardResults'
 import { filterPlayerTournaments, tournamentListStatus } from '../src/features/player/utils/tournamentListFilters'
+import TournamentListItem from '../src/features/tournaments/components/TournamentListItem'
 
 const category = { id: 'c', name: 'Singles', eventType: 'SINGLES', registrationPhase: 'CLOSED' }
 const tournament = { id: 't', name: 'Completed Singles', status: 'PUBLISHED', createdAt: '2026-09-12', categories: [category], tournamentDate: '2026-09-30', registrationCloseDate: '2099-09-28', registrationCloseTime: '18:00', venueName: 'SmashPoint Court', registeredPlayerCount: 4 }
@@ -89,4 +90,37 @@ assert.match(doublesHTML, /Karthik \/ Guest Partner/); assert.match(doublesHTML,
 const missing = renderToStaticMarkup(<TournamentCardResults tournament={tournament} results={[{ ...results[0], winnerParticipantName: result.winnerParticipantId, runnerUpParticipantName: 'abc12345-1234-1234-1234-123456789abc' }]} />)
 assert.match(missing, /Result pending/)
 assert.doesNotMatch(missing, /abc12345-1234-1234-1234-123456789abc/)
+
+const renderOrganizerCard = (value) => renderToStaticMarkup(<MemoryRouter><TournamentListItem tournament={value} /></MemoryRouter>)
+const publishedCard = renderOrganizerCard({ ...tournament, completionStatus: 'IN_PROGRESS' })
+assert.match(publishedCard, />Published</)
+assert.doesNotMatch(publishedCard, /🏆 Winner|🥈 Runner-up/)
+
+const completedCard = renderOrganizerCard({ ...enriched, registeredPlayerCount: 4, registeredTeamCount: 2 })
+assert.match(completedCard, />COMPLETED</)
+assert.match(completedCard, /🏆 Winner[\s\S]*Karthik/)
+assert.match(completedCard, /🥈 Runner-up[\s\S]*Mr X/)
+assert.match(completedCard, /4 Players Registered/)
+assert.doesNotMatch(completedCard, /2 Teams/)
+assert.ok(completedCard.indexOf('🏆 Winner') < completedCard.indexOf('Date'))
+assert.match(completedCard, /grid min-w-0 grid-cols-1 gap-2 min-\[360px\]:grid-cols-2/)
+
+const completedDoublesCard = renderOrganizerCard({ ...enriched, registeredPlayerCount: 4, registeredTeamCount: 2, categories: [{ ...enriched.categories[0], eventType: 'DOUBLES' }] })
+assert.match(completedDoublesCard, /4 Players Registered/)
+assert.match(completedDoublesCard, /2 Teams/)
+
+const resultTwo = { ...results[0], id: 'r2', categoryId: 'c2', categoryName: 'Doubles', winnerParticipantName: 'Team Alpha', runnerUpParticipantName: 'Team Beta' }
+const multi = { ...enriched, categories: [
+  enriched.categories[0],
+  { ...enriched.categories[0], id: 'c2', name: 'Doubles', eventType: 'DOUBLES', result: resultTwo },
+] }
+const multiCard = renderOrganizerCard(multi)
+assert.match(multiCard, /RESULTS/)
+assert.match(multiCard, /Singles[\s\S]*Karthik[\s\S]*Mr X/)
+assert.match(multiCard, /Doubles[\s\S]*Team Alpha[\s\S]*Team Beta/)
+
+const missingResultCard = renderOrganizerCard({ ...enriched, categories: [{ ...enriched.categories[0], result: null }] })
+assert.match(missingResultCard, />COMPLETED</)
+assert.doesNotMatch(missingResultCard, /🏆 Winner|🥈 Runner-up/)
+assert.match(missingResultCard, /Result pending/)
 console.log('PASS: default Open dropdown, all four statuses, combined filters, sort, singles/doubles/guest results and bounded bulk requests')
