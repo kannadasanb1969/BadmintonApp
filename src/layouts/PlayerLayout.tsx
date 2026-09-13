@@ -9,8 +9,8 @@ const PlayerLayout = () => {
   const navigation = [
     { to: '/player/dashboard', label: 'Home', icon: 'home' as const, match: (path: string) => path === '/player' || path.startsWith('/player/dashboard') },
     { to: '/player/tournaments', label: 'Tournaments', icon: 'trophy' as const },
-    { to: '/player/registrations', label: 'Entries', icon: 'clipboard' as const },
-    { to: '/player/fixtures', label: 'Fixtures', icon: 'bracket' as const },
+    { to: '/player/friendly-matches', label: 'Friendly Match', mobileLabel: 'Friendly', icon: 'bracket' as const },
+    { to: '/player/players', label: 'Players', icon: 'user' as const },
     { to: '/player/profile', label: 'Profile', icon: 'user' as const },
   ]
 

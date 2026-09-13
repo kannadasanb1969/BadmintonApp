@@ -197,6 +197,7 @@ const DoubleRegistrationConfirmationPage = () => {
           id: guest.id,
           userId: '', // Guest doesn't have auth user ID
           fullName: guest.fullName,
+          gender: guest.gender ?? undefined,
           dob: guest.dob,
           age: guest.age,
           mobile: guest.mobile,
@@ -421,6 +422,7 @@ const DoubleRegistrationConfirmationPage = () => {
           id: guest.id,
           userId: '', // Guest doesn't have auth user ID
           fullName: guest.fullName,
+          gender: guest.gender ?? undefined,
           dob: guest.dob,
           age: guest.age,
           mobile: guest.mobile,
@@ -667,6 +669,9 @@ const DoubleRegistrationConfirmationPage = () => {
             <p className="text-sm text-gray-500">
               {partnerType === 'FULL' ? 'Full Player' : 'Guest Player'}
             </p>
+            {partnerType === 'GUEST' && guestPlayerStore.getGuestById(partnerId)?.gender && (
+              <><p className="font-medium text-gray-800">Gender:</p><p className="text-sm text-gray-500">{guestPlayerStore.getGuestById(partnerId)?.gender === 'MALE' ? 'Male' : guestPlayerStore.getGuestById(partnerId)?.gender === 'FEMALE' ? 'Female' : 'Other'}</p></>
+            )}
           </div>
         ) : (
           <p className="text-center text-sm text-gray-500">

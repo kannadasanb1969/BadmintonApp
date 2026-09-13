@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Fixture, FixtureMatch, MatchStatus } from '@/features/fixtures/types/fixture.types';
 import { FixtureParticipant } from '@/features/fixtures/types/fixture.types';
+import { isMatchCompletionEligible } from '@/features/matches/utils/matchLifecycle';
 
 interface FixtureStoreState {
   fixtures: Fixture[];
@@ -216,7 +217,8 @@ export const useFixtureStore = create<FixtureStoreState>()(
         }
 
         const match = fixture.matches[matchIndex];
-        const winningPoints = match.winningPoints ?? 21;
+        const winningPoints = match.winningPoints;
+        if (winningPoints !== 15 && winningPoints !== 21 && winningPoints !== 30) throw new Error('Select valid winning points before scoring');
         // Only allow scoring live matches
         if (match.status !== MatchStatus.LIVE) {
           throw new Error('Only live matches can be scored');
@@ -242,10 +244,6 @@ export const useFixtureStore = create<FixtureStoreState>()(
         if (newParticipant1Score < 0 || newParticipant2Score < 0) {
           throw new Error('Score cannot go below 0');
         }
-        if (newParticipant1Score > winningPoints || newParticipant2Score > winningPoints) {
-          throw new Error(`Score cannot exceed ${winningPoints} points`);
-        }
-
         // Create snapshot of current state before updating
         const snapshot: { participant1Score: number; participant2Score: number } = {
           participant1Score: match.participant1Score,
@@ -380,9 +378,8 @@ export const useFixtureStore = create<FixtureStoreState>()(
           throw new Error('Both participants must be present to complete match');
         }
 
-        // Check for tie
-        if (match.participant1Score === match.participant2Score) {
-          throw new Error('Match cannot finish with a tied score');
+        if (!isMatchCompletionEligible(match.participant1Score, match.participant2Score, match.winningPoints)) {
+          throw new Error('Match requires the target score and a two-point lead');
         }
 
         // Complete the match
