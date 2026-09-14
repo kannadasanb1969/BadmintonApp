@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/api/apiClient'
 import { friendlyService } from '@/features/friendly/services/friendlyService'
 import type { QueryClient } from '@tanstack/react-query'
-import type { FriendlyFixtureData, FriendlyGameMatch } from '../types/friendly.types'
+import type { FriendlyFixtureData, FriendlyGameMatch, FriendlyParticipant, FriendlyTeam } from '../types/friendly.types'
 import { replaceFriendlyFixtureMatch } from '../utils/friendlyScoring'
 
 export const friendlyKeys = {
@@ -74,12 +74,44 @@ export const invalidateFriendlyTeams = async (client: QueryClient, id: string) =
 
 export const useFriendlyTeams = (id: string, enabled: boolean) => useQuery({ queryKey: friendlyKeys.teams(id), queryFn: () => friendlyService.getTeams(id), enabled, retry: false })
 
+export const optimisticallyRemoveFriendlyTeam = async (client: QueryClient, id: string, teamId: string) => {
+  await client.cancelQueries({ queryKey: friendlyKeys.teams(id) })
+  const previousTeams = client.getQueryData<FriendlyTeam[]>(friendlyKeys.teams(id))
+  client.setQueryData<FriendlyTeam[]>(friendlyKeys.teams(id), current => current?.filter(team => team.id !== teamId))
+  return previousTeams
+}
+
+export const rollbackFriendlyTeams = (client: QueryClient, id: string, previousTeams?: FriendlyTeam[]) => {
+  if (previousTeams) client.setQueryData(friendlyKeys.teams(id), previousTeams)
+}
+
+export const friendlyTeamWithMembers = (team: Omit<FriendlyTeam, 'members'>, playerIds: [string, string], participants: FriendlyParticipant[]): FriendlyTeam => ({
+  ...team,
+  members: playerIds.map(playerId => { const participant = participants.find(item => item.player_id === playerId); return { id: playerId, name: participant?.full_name ?? 'Player', code: participant?.player_code ?? '' } }),
+})
+
 const useTeamMutation = <T,>(id: string, mutationFn: (variables: T) => Promise<unknown>) => {
   const client = useQueryClient()
   return useMutation({ mutationFn, onSuccess: () => invalidateFriendlyTeams(client, id) })
 }
-export const useCreateFriendlyTeam = (id: string) => useTeamMutation<[string, string]>(id, playerIds => friendlyService.createTeam(id, playerIds))
-export const useDeleteFriendlyTeam = (id: string) => useTeamMutation<string>(id, teamId => friendlyService.deleteTeam(id, teamId))
+export const useCreateFriendlyTeam = (id: string) => {
+  const client = useQueryClient()
+  return useMutation({ mutationFn: (playerIds: [string, string]) => friendlyService.createTeam(id, playerIds), onSuccess: async (team, playerIds) => {
+    const participants = client.getQueryData<FriendlyParticipant[]>(friendlyKeys.participants(id)) ?? []
+    const completeTeam = friendlyTeamWithMembers(team, playerIds, participants)
+    client.setQueryData<FriendlyTeam[]>(friendlyKeys.teams(id), current => [...(current ?? []).filter(item => item.id !== team.id), completeTeam])
+    await invalidateFriendlyTeams(client, id)
+  } })
+}
+export const useDeleteFriendlyTeam = (id: string) => {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (teamId: string) => friendlyService.deleteTeam(id, teamId),
+    onMutate: async teamId => ({ previousTeams: await optimisticallyRemoveFriendlyTeam(client, id, teamId) }),
+    onError: (_error, _teamId, context) => rollbackFriendlyTeams(client, id, context?.previousTeams),
+    onSuccess: () => invalidateFriendlyTeams(client, id),
+  })
+}
 export const useShuffleFriendlyPartners = (id: string) => useTeamMutation<void>(id, () => friendlyService.shufflePartners(id))
 export const useResetFriendlyFixtures = (id: string) => useTeamMutation<void>(id, () => friendlyService.resetFixtures(id))
 export const useFriendlyFixtures = (id: string) => useQuery({ queryKey: friendlyKeys.fixtures(id), queryFn: () => friendlyService.getFixtures(id), enabled: Boolean(id), retry: false })

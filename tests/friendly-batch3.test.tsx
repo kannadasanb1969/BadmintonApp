@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import apiClient from '../src/api/apiClient'
 import { FriendlyTeamSetup } from '../src/features/friendly/components/FriendlyTeamSetup'
 import { ParticipantsContent } from '../src/features/friendly/components/FriendlyManagement'
-import { friendlyKeys, invalidateFriendlyTeams } from '../src/features/friendly/hooks/friendlyHooks'
+import { friendlyKeys, friendlyTeamWithMembers, invalidateFriendlyTeams, optimisticallyRemoveFriendlyTeam, rollbackFriendlyTeams } from '../src/features/friendly/hooks/friendlyHooks'
 import { friendlyService } from '../src/features/friendly/services/friendlyService'
 import { canCreateFriendlyTeamFromUnpaired, canCreateManualPair, canShowTeamSetup, friendlyTeamForParticipant, pairingLockedMessage, selectableFriendlyParticipants, shuffleDisabledReason, unpairedFriendlyParticipants } from '../src/features/friendly/utils/friendlyTeams'
 
@@ -17,6 +17,7 @@ const participants = [
   { id: 'row-4', friendly_match_id: 'friendly-1', player_id: 'player-4', created_at: '', full_name: 'Player Four', player_code: 'PLR004' },
 ]
 const team = { id: 'team-1', friendly_match_id: 'friendly-1', team_code: 'TEAM001', created_at: '', updated_at: '', members: [{ id: 'player-1', name: 'Player One', code: 'PLR001' }, { id: 'player-2', name: 'Player Two', code: 'PLR002' }] }
+const otherTeam = { id: 'team-2', friendly_match_id: 'friendly-1', team_code: 'TEAM002', created_at: '', updated_at: '', members: [{ id: 'player-3', name: 'Player Three', code: 'PLR003' }, { id: 'player-4', name: 'Player Four', code: 'PLR004' }] }
 assert.equal(canShowTeamSetup('DOUBLES', true), true)
 assert.equal(canShowTeamSetup('DOUBLES', false), false)
 assert.equal(canShowTeamSetup('SINGLES', true), false)
@@ -26,12 +27,26 @@ assert.equal(friendlyTeamForParticipant('player-3', [team]), null)
 assert.deepEqual(selectableFriendlyParticipants(participants, [team], 'player-3').map(row => row.player_id), ['player-4'])
 assert.equal(canCreateFriendlyTeamFromUnpaired(['player-3', 'player-4'], participants, [team]), true)
 assert.equal(canCreateFriendlyTeamFromUnpaired(['player-1', 'player-3'], participants, [team]), false)
+const createdTeam = friendlyTeamWithMembers({ id: 'team-3', friendly_match_id: 'friendly-1', team_code: 'TEAM003', created_at: '', updated_at: '' }, ['player-3', 'player-4'], participants)
+assert.deepEqual(createdTeam.members.map(member => member.id), ['player-3', 'player-4']); assert.equal(createdTeam.members[0].name, 'Player Three')
+assert.deepEqual(unpairedFriendlyParticipants(participants, [team, createdTeam]), [])
 assert.equal(canCreateManualPair(['player-3', 'player-4']), true)
 assert.equal(canCreateManualPair(['player-3', 'player-3']), false)
 assert.match(shuffleDisabledReason(1) ?? '', /even number/)
 assert.match(shuffleDisabledReason(0) ?? '', /At least two/)
 assert.equal(shuffleDisabledReason(2), null)
 assert.match(pairingLockedMessage, /fixtures have already been generated/)
+const optimisticClient = new QueryClient(); optimisticClient.setQueryData(friendlyKeys.teams('friendly-1'), [team, otherTeam])
+const snapshot = await optimisticallyRemoveFriendlyTeam(optimisticClient, 'friendly-1', 'team-1')
+assert.deepEqual(optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')), [otherTeam])
+assert.deepEqual(unpairedFriendlyParticipants(participants, optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')) ?? []).map(row => row.player_id), ['player-1', 'player-2'])
+assert.equal(friendlyTeamForParticipant('player-1', optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')) ?? []), null)
+const optimisticCards = renderToStaticMarkup(<ParticipantsContent rows={participants} teams={optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')) ?? []} showPairingState />)
+assert.doesNotMatch(optimisticCards, /TEAM001/); assert.match(optimisticCards, /Player One[\s\S]*UNPAIRED/)
+rollbackFriendlyTeams(optimisticClient, 'friendly-1', snapshot)
+assert.deepEqual(optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')), [team, otherTeam])
+assert.equal(friendlyTeamForParticipant('player-1', optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')) ?? [])?.team_code, 'TEAM001')
+assert.match(renderToStaticMarkup(<ParticipantsContent rows={participants} teams={optimisticClient.getQueryData(friendlyKeys.teams('friendly-1')) ?? []} showPairingState />), /TEAM001/)
 const participantCards = renderToStaticMarkup(<ParticipantsContent rows={participants} teams={[team]} showPairingState />)
 assert.match(participantCards, /Player One/); assert.match(participantCards, /PAIRED/); assert.match(participantCards, /TEAM001/)
 assert.match(participantCards, /Player Three/); assert.match(participantCards, /UNPAIRED/)
@@ -78,4 +93,7 @@ await invalidateFriendlyTeams({ invalidateQueries: async ({ queryKey }) => { inv
 assert.deepEqual(invalidated.sort(), [friendlyKeys.all.join('/'), friendlyKeys.detail('friendly-1').join('/'), friendlyKeys.fixtures('friendly-1').join('/'), friendlyKeys.participants('friendly-1').join('/'), friendlyKeys.teams('friendly-1').join('/')].sort())
 const setupSource = await readFile('src/features/friendly/components/FriendlyTeamSetup.tsx', 'utf8')
 assert.match(setupSource, /text === 'Team not found'/); assert.match(setupSource, /await teamsQuery\.refetch\(\)/); assert.match(setupSource, /if \(refreshed\.isSuccess\) setError\(null\)/)
+const hooksSource = await readFile('src/features/friendly/hooks/friendlyHooks.ts', 'utf8')
+assert.match(hooksSource, /cancelQueries\(\{ queryKey: friendlyKeys\.teams\(id\) \}\)/); assert.match(hooksSource, /onMutate: async teamId/); assert.match(hooksSource, /onError: .*rollbackFriendlyTeams/)
+assert.doesNotMatch(`${setupSource}\n${hooksSource}`, /window\.location\.reload|location\.reload|navigate\(0\)/)
 console.log('PASS: Friendly doubles paired/unpaired badges, dropdown/defensive guards, fixture lock, exact mutations and authoritative refetch keys')
