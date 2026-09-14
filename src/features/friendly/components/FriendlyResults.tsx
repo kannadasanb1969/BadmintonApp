@@ -2,6 +2,7 @@ import { ApiError } from '@/api/apiClient'
 import type { FriendlyMatch, FriendlyParticipant, FriendlyResult, FriendlyStandings, FriendlyTeam } from '../types/friendly.types'
 import { useFriendlyParticipants, useFriendlyResult, useFriendlyStandings, useFriendlyTeams } from '../hooks/friendlyHooks'
 import { resolveFriendlyParticipant } from './FriendlyFixtures'
+import { FriendlyLifecycleActions } from './FriendlyLifecycleActions'
 
 const Identity = ({ id, type, participants, teams }: { id: string; type: 'PLAYER' | 'TEAM'; participants: FriendlyParticipant[]; teams: FriendlyTeam[] }) => {
   const display = resolveFriendlyParticipant(id, type, participants, teams)
@@ -44,5 +45,5 @@ export const FriendlyResultsSection = ({ match }: { match: FriendlyMatch }) => {
   } else if (knockout) content = <FriendlyKnockoutResultView match={match} result={resultQuery.data} participants={participantsQuery.data ?? []} teams={teamsQuery.data ?? []} />
   else if (standingsQuery.data) content = <FriendlyLeagueStandingsView standings={standingsQuery.data} participants={participantsQuery.data ?? []} teams={teamsQuery.data ?? []} />
   else content = <p className="text-slate-600">No standings are available.</p>
-  return <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6"><h2 className="mb-4 text-xl font-black">Results</h2>{content}</section>
+  return <section className="mobile-card rounded-3xl border-slate-200 p-5 sm:p-6"><div className="mb-4 flex items-center gap-3"><span aria-hidden="true" className="h-8 w-1 rounded-full bg-emerald-500" /><h2 className="text-xl font-black">Results</h2></div>{content}<FriendlyLifecycleActions match={match} /></section>
 }

@@ -10,6 +10,7 @@ import { FriendlyResultsSection } from '../src/features/friendly/components/Frie
 import { FriendlyFixtureView } from '../src/features/friendly/components/FriendlyFixtures'
 import { friendlyKeys } from '../src/features/friendly/hooks/friendlyHooks'
 import { friendlyService } from '../src/features/friendly/services/friendlyService'
+import { canShowFriendlyJoinRequests } from '../src/features/friendly/pages/FriendlyDetailsPage'
 import type { FriendlyMatch, FriendlyMatchStatus, FriendlyResult } from '../src/features/friendly/types/friendly.types'
 
 for (const status of ['DRAFT', 'OPEN', 'ACTIVE', 'DELETED'] as FriendlyMatchStatus[]) {
@@ -20,6 +21,10 @@ assert.equal(friendlyLifecycleAction('COMPLETED', true), 'CLOSE')
 assert.equal(friendlyLifecycleAction('CLEANUP_PENDING', true), 'CLEANUP')
 assert.equal(friendlyLifecycleAction('COMPLETED', false), null)
 assert.equal(friendlyLifecycleAction('CLEANUP_PENDING', false), null)
+assert.equal(canShowFriendlyJoinRequests(true, 'DRAFT'), true)
+assert.equal(canShowFriendlyJoinRequests(true, 'OPEN'), true)
+for (const status of ['ACTIVE', 'COMPLETED', 'CLEANUP_PENDING', 'DELETED']) assert.equal(canShowFriendlyJoinRequests(true, status), false)
+assert.equal(canShowFriendlyJoinRequests(false, 'OPEN'), false)
 
 const match: FriendlyMatch = { id: 'f1', friendly_match_code: 'FRN001', title: 'Sunday Smash', description: null, creator_player_id: 'p1', event_type: 'SINGLES', format: 'KNOCKOUT', max_players: 4, status: 'COMPLETED', created_at: '', updated_at: '', isCreator: true, isParticipant: true, hasPendingJoinRequest: false, canJoin: false }
 const wrap = (node: React.ReactNode, client = new QueryClient()) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}>{node}</QueryClientProvider></MemoryRouter>)
@@ -54,7 +59,9 @@ assert.deepEqual(calls[2], { path: '/api/friendly-matches/f1/cleanup', body: {} 
 const hooksSource = await readFile('src/features/friendly/hooks/friendlyHooks.ts', 'utf8')
 for (const key of ['detail', 'joinRequests', 'participants', 'teams', 'fixtures', 'result', 'standings']) assert.match(hooksSource, new RegExp(`friendlyKeys\\.${key}\\(friendlyId\\)`))
 const pageSource = await readFile('src/features/friendly/pages/FriendlyDetailsPage.tsx', 'utf8')
-assert.match(pageSource, /operational && shouldShowFriendlyManagement/); assert.match(pageSource, /operational && canShowTeamSetup/)
+assert.match(pageSource, /canShowJoinRequests && <FriendlyJoinRequests/); assert.match(pageSource, /operational && canShowTeamSetup/)
+assert.doesNotMatch(pageSource, /<FriendlyLifecycleActions match=/)
+const resultsSource = await readFile('src/features/friendly/components/FriendlyResults.tsx', 'utf8'); assert.match(resultsSource, /<FriendlyLifecycleActions match={match}/)
 const lifecycleSource = await readFile('src/features/friendly/components/FriendlyLifecycleActions.tsx', 'utf8')
 assert.match(lifecycleSource, /navigate\('\/player\/friendly-matches'/); assert.match(lifecycleSource, /role="alert"/); assert.doesNotMatch(lifecycleSource, /cleanupFriendlyMatch.*closeFriendlyMatch|closeFriendlyMatch.*cleanupFriendlyMatch/)
-console.log('PASS: 50 Friendly lifecycle assertions for action matrix, confirmations, exact APIs, idempotency, retained result, control safety, cache cleanup and navigation')
+console.log('PASS: 60 Friendly lifecycle and composition assertions for visibility, contextual actions, confirmations, exact APIs, retained result, cache cleanup and navigation')

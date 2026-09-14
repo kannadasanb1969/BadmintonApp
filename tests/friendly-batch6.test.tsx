@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import apiClient from '../src/api/apiClient'
 import { FriendlyKnockoutResultView, FriendlyLeagueStandingsView, FriendlyResultsSection } from '../src/features/friendly/components/FriendlyResults'
 import { friendlyService } from '../src/features/friendly/services/friendlyService'
@@ -38,7 +39,7 @@ const provisionalHtml = renderToStaticMarkup(<FriendlyLeagueStandingsView standi
 assert.match(provisionalHtml, /Results will be available after match completion/); assert.doesNotMatch(provisionalHtml, /Backend leader/)
 assert.match(renderToStaticMarkup(<FriendlyLeagueStandingsView standings={{ ...standings, standings: [] }} participants={participants} teams={[]} />), /No standings are available/)
 
-const wrap = (node: React.ReactNode) => renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>)
+const wrap = (node: React.ReactNode) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider></MemoryRouter>)
 assert.match(wrap(<FriendlyResultsSection match={{ ...match, status: 'ACTIVE' }} />), /Results will be available after match completion/)
 assert.match(wrap(<FriendlyResultsSection match={{ ...match, format: 'LEAGUE' }} />), /Loading Friendly results/)
 
