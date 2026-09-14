@@ -19,7 +19,6 @@ import { isExplicitMockApiMode } from '@/api/apiClient'
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
 import { canIncrementMatchScore, canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus, validWinningPoints } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
-import { AnimatedScore } from '@/features/matches/components/AnimatedScore'
 
 const MatchScoringPage = () => {
   const { tournamentId, categoryId, matchId } = useParams<{ tournamentId: string; categoryId: string; matchId: string }>()
@@ -416,7 +415,7 @@ const MatchScoringPage = () => {
                     </span>
                   )}
                   <span className="text-sm font-mono">
-                    <AnimatedScore value={match.participant1Score} active={match.status === 'LIVE'} />
+                    {match.participant1Score}
                   </span>
                   {canScoreMatch(match) ? (
                     <>
@@ -460,7 +459,7 @@ const MatchScoringPage = () => {
               <div className="flex justify-between items-start">
                 <span className="font-medium text-gray-700">P2 Score:</span>
                 <span className="text-sm">
-                  <AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} />
+                  {match.participant2Score}
                 </span>
               </div>
             ) : (
@@ -485,7 +484,7 @@ const MatchScoringPage = () => {
                     </span>
                   )}
                   <span className="text-sm font-mono">
-                    <AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} />
+                    {match.participant2Score}
                   </span>
                   {canScoreMatch(match) ? (
                     <>
@@ -561,11 +560,11 @@ const MatchScoringPage = () => {
               <>
                 <div className="flex justify-between items-start mt-4">
                   <span className="font-medium text-gray-700">P1 Score:</span>
-                  <span className="text-sm font-mono"><AnimatedScore value={match.participant1Score} active={match.status === 'LIVE'} /></span>
+                  <span className="text-sm font-mono">{match.participant1Score}</span>
                 </div>
                 <div className="flex justify-between items-start mt-4">
                   <span className="font-medium text-gray-700">P2 Score:</span>
-                  <span className="text-sm font-mono"><AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} /></span>
+                  <span className="text-sm font-mono">{match.participant2Score}</span>
                 </div>
               </>
             )}

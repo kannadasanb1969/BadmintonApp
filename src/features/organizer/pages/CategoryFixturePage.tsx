@@ -17,7 +17,6 @@ import { registrationService } from '@/features/registrations/services/registrat
 import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
 import { canIncrementMatchScore, canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus } from '@/features/matches/utils/matchLifecycle'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
-import { AnimatedScore } from '@/features/matches/components/AnimatedScore'
 
 const CategoryFixturePage = () => {
   const { tournamentId, categoryId } = useParams<{ tournamentId: string; categoryId: string }>()
@@ -449,7 +448,7 @@ const CategoryFixturePage = () => {
                         </span>
                       ) : null}
                       <span className="text-sm font-mono">
-                        <AnimatedScore value={match.participant1Score} active={match.status === 'LIVE'} />
+                        {match.participant1Score}
                       </span>
                       {canScoreMatch(match) ? (
                         <>
@@ -489,7 +488,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P2 Score:</span>
                     <span className="text-sm">
-                      <AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} />
+                      {match.participant2Score}
                     </span>
                   </div>
                 ) : (
@@ -514,7 +513,7 @@ const CategoryFixturePage = () => {
                         </span>
                       ) : null}
                       <span className="text-sm font-mono">
-                        <AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} />
+                        {match.participant2Score}
                       </span>
                       {canScoreMatch(match) ? (
                         <>
@@ -587,11 +586,11 @@ const CategoryFixturePage = () => {
                   <>
                     <div className="flex justify-between items-start mt-2">
                       <span className="font-medium text-gray-700">P1 Score:</span>
-                      <span className="text-sm font-mono"><AnimatedScore value={match.participant1Score} active={match.status === 'LIVE'} /></span>
+                      <span className="text-sm font-mono">{match.participant1Score}</span>
                     </div>
                     <div className="flex justify-between items-start mt-2">
                       <span className="font-medium text-gray-700">P2 Score:</span>
-                      <span className="text-sm font-mono"><AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} /></span>
+                      <span className="text-sm font-mono">{match.participant2Score}</span>
                     </div>
                   </>
                 )}
