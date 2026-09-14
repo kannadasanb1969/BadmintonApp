@@ -22,6 +22,7 @@ export const guestPlayerService = {
       const guest = (await apiClient.post<GuestPlayer>('/api/guest-players', {
         fullName: guestData.fullName.trim(),
         mobile: guestData.mobile.trim(),
+        gender: guestData.gender ?? null,
         dob: guestData.dob,
         location: guestData.location || null,
         playingSince: guestData.playingSince,
@@ -83,6 +84,7 @@ export const guestPlayerService = {
       const guest = (await apiClient.put<GuestPlayer>(`/api/guest-players/${id}`, {
         fullName: updates.fullName,
         mobile: updates.mobile,
+        ...(updates.gender !== undefined ? { gender: updates.gender } : {}),
         dob: updates.dob,
         location: updates.location,
         playingSince: updates.playingSince,

@@ -14,7 +14,9 @@ import { matchService } from '@/features/matches/services/matchService'
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 import { isExplicitMockApiMode } from '@/api/apiClient'
 import { registrationService } from '@/features/registrations/services/registrationService'
-import { teamService } from '@/features/teams/services/teamService'
+import { useOptimisticMatchScore } from '@/features/matches/hooks/useOptimisticMatchScore'
+import { canIncrementMatchScore, canShowMatchMutation, getCompletionBlockedReason, getMatchCompletionStatus } from '@/features/matches/utils/matchLifecycle'
+import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
 
 const CategoryFixturePage = () => {
   const { tournamentId, categoryId } = useParams<{ tournamentId: string; categoryId: string }>()
@@ -35,14 +37,34 @@ const CategoryFixturePage = () => {
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [isPublishing, setIsPublishing] = useState<boolean>(false)
   const [isReshuffling, setIsReshuffling] = useState<boolean>(false)
-  const [isClosingRegistration, setIsClosingRegistration] = useState<boolean>(false)
-  const [showCloseConfirmation, setShowCloseConfirmation] = useState<boolean>(false)
   // Scoring state
   const [isStartingMatch, setIsStartingMatch] = useState<string | false>(false) // matchId or false
-  const [isScoring, setIsScoring] = useState<{ matchId: string; side: 'PARTICIPANT_1' | 'PARTICIPANT_2' } | null>(null)
   const [isUndoingScore, setIsUndoingScore] = useState<string | false>(false) // matchId or false
   const [isCompletingMatch, setIsCompletingMatch] = useState<string | false>(false) // matchId or false
-  const [entryCount, setEntryCount] = useState(0)
+  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [entriesLoading, setEntriesLoading] = useState(true)
+  const entryCount = registrations.length
+  const { enqueue: enqueueScore, reconcile: reconcileScore } = useOptimisticMatchScore()
+  const [winningPointSelections, setWinningPointSelections] = useState<Record<string, 15 | 21 | 30>>({})
+
+  const realtimeMatchIds = (fixture?.matches ?? [])
+    .filter(match => match.status === 'SCHEDULED' || match.status === 'LIVE')
+    .map(match => match.id)
+  useMatchLiveUpdates(realtimeMatchIds, {
+    refetch: () => fixture ? fixtureService.getFixture(fixture.id).then(updated => { if (updated) setFixture(updated) }) : undefined,
+    onEvent: event => setFixture(current => current ? {
+      ...current,
+      updatedAt: event.updatedAt ?? current.updatedAt,
+      matches: current.matches.map(match => match.id === event.matchId ? reconcileScore({
+        ...match,
+        status: event.status,
+        participant1Score: event.participant1Score,
+        participant2Score: event.participant2Score,
+        ...(event.winningPoints ? { winningPoints: event.winningPoints } : {}),
+        ...(event.winnerParticipantId !== undefined ? { winnerId: event.winnerParticipantId, winnerParticipantId: event.winnerParticipantId, winnerParticipantName: event.winnerParticipantName, winnerParticipantCode: event.winnerParticipantCode } : {}),
+      }) : match),
+    } : current),
+  })
 
   const refreshCategoryData = async (refreshTournament = true) => {
     if (!tournamentId || !categoryId) return
@@ -53,17 +75,21 @@ const CategoryFixturePage = () => {
     const updatedCategory = updatedTournament?.categories.find(item => item.id === categoryId)
     if (!updatedCategory) return
 
-    const entries = updatedCategory.eventType === 'SINGLES'
-      ? (await registrationService.getTournamentRegistrations(tournamentId)).filter(item => item.categoryId === categoryId && item.status === 'REGISTERED')
-      : (await teamService.getCategoryTeams(tournamentId, categoryId)).filter(item => item.status === 'CONFIRMED')
-    setEntryCount(entries.length)
+    // Doubles teams are only materialized when fixtures are generated.
+    // Each active registration already represents one singles entry or doubles pair.
+    const entries = (await registrationService.getTournamentRegistrations(tournamentId))
+      .filter(item => item.categoryId === categoryId && item.status === 'REGISTERED')
+    setRegistrations(entries)
 
     const existingFixture = (await fixtureService.getFixtures()).find(item => item.tournamentId === tournamentId && item.categoryId === categoryId)
     setFixture(existingFixture ?? null)
   }
 
   useEffect(() => {
-    void refreshCategoryData().catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load category details'))
+    setEntriesLoading(true)
+    setRegistrations([])
+    setFixture(null)
+    void refreshCategoryData().catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load category details')).finally(() => setEntriesLoading(false))
   }, [tournamentId, categoryId])
 
   // Keep the category phase in one canonical place: the current tournament
@@ -106,9 +132,8 @@ const CategoryFixturePage = () => {
   const registrationPhase = category.registrationPhase ?? 'OPEN'
   const hasRegistrations = entryCount > 0
   const hasEnoughEntries = entryCount >= 2
-  const canCloseRegistration = canManageFixture && registrationPhase === 'OPEN' && hasRegistrations && !fixture
-  const canGenerateFixture = registrationPhase === 'CLOSED' && hasEnoughEntries
-  const generationMessage = !hasRegistrations
+  const canGenerateFixture = !entriesLoading && registrationPhase === 'CLOSED' && hasEnoughEntries
+  const generationMessage = entriesLoading ? 'Loading registrations...' : error ? null : !hasRegistrations
     ? 'No registrations available yet.'
     : registrationPhase === 'OPEN'
       ? 'Close registration before generating fixtures.'
@@ -126,36 +151,17 @@ const CategoryFixturePage = () => {
     </div>
   )
 
-  const handleCloseRegistration = async () => {
-    if (!tournamentId || !categoryId || !currentUser || !canCloseRegistration) return
-    setIsClosingRegistration(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      await useTournamentStore.getState().closeCategoryRegistration(currentUser.id, tournamentId, categoryId)
-      await refreshCategoryData(false)
-      setSuccess('Registration closed successfully. You can now generate the fixture when the minimum entries are available.')
-    } catch (err) {
-      await refreshCategoryData().catch(() => undefined)
-      const refreshedCategory = useTournamentStore.getState().tournament?.categories.find(item => item.id === categoryId)
-      if (refreshedCategory?.registrationPhase === 'CLOSED') {
-        setSuccess('Registration is already closed.')
-      } else {
-        setError(err instanceof Error ? err.message : 'Unable to close registration')
-      }
-    } finally {
-      setIsClosingRegistration(false)
-      setShowCloseConfirmation(false)
-    }
-  }
-
-  const registrationCloseControl = canManageFixture && registrationPhase === 'OPEN' && !fixture && (
-    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-      {!showCloseConfirmation ? (
-        <><button type="button" onClick={() => setShowCloseConfirmation(true)} disabled={isClosingRegistration || !canCloseRegistration} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">{isClosingRegistration ? 'Closing...' : 'Close Registration'}</button>{!hasRegistrations && <p className="mt-2 text-sm text-amber-800">No registrations available yet.</p>}</>
-      ) : (
-        <div className="space-y-3"><p className="text-sm text-slate-700">Close registration with {entryCount} {category.eventType === 'SINGLES' ? 'registered players' : 'registered teams'}? New registrations will no longer be accepted.</p><div className="flex flex-wrap gap-3"><button type="button" onClick={() => setShowCloseConfirmation(false)} disabled={isClosingRegistration} className="rounded-lg bg-slate-500 px-4 py-2 text-sm font-bold text-white hover:bg-slate-600 disabled:opacity-50">Cancel</button><button type="button" onClick={handleCloseRegistration} disabled={isClosingRegistration} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50">{isClosingRegistration ? 'Closing...' : 'Confirm Close'}</button></div></div>
-      )}
+  const registrationList = (
+    <div className="mb-6 rounded-xl bg-white p-4 text-slate-900">
+      <h3 className="font-bold">Registrations {entriesLoading ? '' : `(${entryCount} ${category.eventType === 'DOUBLES' ? 'pairs' : 'players'})`}</h3>
+      {entriesLoading ? <p>Loading registrations...</p> : registrations.map(registration => (
+        <div key={registration.id} className="mt-3 border-t border-slate-200 pt-3 text-sm">
+          <p className="font-semibold">{registration.playerName || registration.playerCode || registration.playerId}
+            {category.eventType === 'DOUBLES' && ` / ${registration.partnerName || registration.partnerCode || registration.partnerId || 'Partner details unavailable'}`}
+          </p>
+          <p>{registration.registrationCode}</p>
+        </div>
+      ))}
     </div>
   )
 
@@ -216,8 +222,16 @@ const CategoryFixturePage = () => {
     }
   }
 
+  const selectedWinningPoints = (match: FixtureMatch): 15 | 21 | 30 | undefined => {
+    const value = winningPointSelections[match.id] ?? match.winningPoints
+    return value === 15 || value === 21 || value === 30 ? value : undefined
+  }
+
   const handleStartMatch = async (matchId: string) => {
     if (!tournament || !currentUser || !canManageFixture) return
+    const currentMatch = fixture?.matches.find((item) => item.id === matchId)
+    const winningPoints = currentMatch ? selectedWinningPoints(currentMatch) : undefined
+    if (!winningPoints) return
     setIsStartingMatch(matchId)
     setError(null)
     try {
@@ -225,7 +239,8 @@ const CategoryFixturePage = () => {
         currentUser.id,
         tournamentId,
         categoryId,
-        matchId
+        matchId,
+        winningPoints,
       )
       if (updatedMatch) setFixture((current) => current ? {
         ...current,
@@ -240,12 +255,7 @@ const CategoryFixturePage = () => {
   }
 
   const handleSetWinningPoints = (matchId: string, points: 15 | 21 | 30) => {
-    if (!isExplicitMockApiMode) return
-    if (!fixture) return
-    const updatedMatch = useFixtureStore.getState().setMatchWinningPoints(fixture.id, matchId, points)
-    if (!updatedMatch) return
-    const updatedFixture = useFixtureStore.getState().getFixtureByTournamentCategory(tournamentId, categoryId)
-    if (updatedFixture) setFixture(updatedFixture)
+    setWinningPointSelections((current) => ({ ...current, [matchId]: points }))
   }
 
   const handleUpdateScore = async (
@@ -253,29 +263,21 @@ const CategoryFixturePage = () => {
     side: 'PARTICIPANT_1' | 'PARTICIPANT_2',
     delta: 1 | -1
   ) => {
-    if (!tournament || !currentUser || !canManageFixture) return
-    setIsScoring({ matchId, side })
+    if (!tournament || !currentUser || !canManageFixture || !fixture) return
+    const currentMatch = fixture.matches.find((item) => item.id === matchId)
+    if (!currentMatch) return
     setError(null)
-    try {
-      const updatedMatch = await matchService.updateScore(
-        currentUser.id,
-        tournamentId,
-        categoryId,
-        matchId,
-        side,
-        delta
-      )
-      if (updatedMatch) setFixture((current) => current ? {
+    enqueueScore(
+      currentMatch,
+      side,
+      delta,
+      () => matchService.updateScore(currentUser.id, tournamentId, categoryId, matchId, side, delta),
+      (updatedMatch) => setFixture((current) => current ? {
         ...current,
         matches: current.matches.map((item) => item.id === updatedMatch.id ? updatedMatch : item),
-      } : current)
-      // Clear scoring state after successful update
-      setIsScoring(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    } finally {
-      setIsScoring(null)
-    }
+      } : current),
+      () => setError('Score update failed. Please try again.'),
+    )
   }
 
   const handleUndoScore = async (matchId: string) => {
@@ -328,22 +330,12 @@ const CategoryFixturePage = () => {
 
   // Helper function to check if match can be started
   const canStartMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'SCHEDULED' &&
-      match.participant1 !== null &&
-      match.participant2 !== null &&
-      canManageFixture
-    )
+    return canShowMatchMutation(fixture?.status, match, 'SCHEDULED', canManageFixture)
   }
 
   // Helper function to check if match can be scored
   const canScoreMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'LIVE' &&
-      canManageFixture
-    )
+    return canShowMatchMutation(fixture?.status, match, 'LIVE', canManageFixture)
   }
 
   // Helper function to check if score can be undone
@@ -359,14 +351,7 @@ const CategoryFixturePage = () => {
 
   // Helper function to check if match can be completed
   const canCompleteMatch = (match: FixtureMatch): boolean => {
-    return (
-      fixture?.status === 'PUBLISHED' &&
-      match.status === 'LIVE' &&
-      match.participant1 !== null &&
-      match.participant2 !== null &&
-      match.participant1Score !== match.participant2Score && // Not tied
-      canManageFixture
-    )
+    return canShowMatchMutation(fixture?.status, match, 'LIVE', canManageFixture)
   }
 
   const participantLabel = (participant: FixtureMatch['participant1']) => {
@@ -418,22 +403,24 @@ const CategoryFixturePage = () => {
                 </div>
 
                 {/* Participant 1 Score Controls */}
-                {canStartMatch(match) && !match.participant1Score && !match.participant2Score ? (
-                  // Show start match button if scores are 0-0 and match is scheduled
+                {canStartMatch(match) ? (
+                  // A score target is selected per match and only persisted when it starts.
                   <div className="match-start-panel mt-4">
-                    {isExplicitMockApiMode && <><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p><div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${(match.winningPoints ?? 21) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{(match.winningPoints ?? 21) === points ? '✓ ' : ''}{points}</button>)}</div><p className="mt-2 text-xs text-blue-700">First to {match.winningPoints ?? 21} points wins.</p></>}
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Winning points</p><div className="mt-2 grid grid-cols-3 gap-2">{([15, 21, 30] as const).map(points => <button key={points} type="button" onClick={() => handleSetWinningPoints(match.id, points)} className={`rounded-lg px-2 py-2 text-xs font-black ${selectedWinningPoints(match) === points ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>{selectedWinningPoints(match) === points ? '✓ ' : ''}{points}</button>)}</div>{!selectedWinningPoints(match) && <p className="mt-2 text-xs text-amber-700">Select winning points to start the match.</p>}
                     <div className="mt-3 flex justify-end">
                     {isStartingMatch === match.id ? (
                       <button
                         onClick={() => handleStartMatch(match.id)}
-                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        disabled={!selectedWinningPoints(match)}
+                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Starting...
                       </button>
                     ) : (
                       <button
                         onClick={() => handleStartMatch(match.id)}
-                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        disabled={!selectedWinningPoints(match)}
+                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Start Match
                       </button>
@@ -443,7 +430,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P1 Score:</span>
                     <div className="flex items-center space-x-2">
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', -1)}
@@ -463,12 +450,12 @@ const CategoryFixturePage = () => {
                       <span className="text-sm font-mono">
                         {match.participant1Score}
                       </span>
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_1', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={isExplicitMockApiMode && match.participant1Score >= (match.winningPoints ?? 21)}
+                            disabled={!canIncrementMatchScore(match)}
                             title="Increase score"
                             aria-label="Increase participant 1 score"
                           >
@@ -481,10 +468,11 @@ const CategoryFixturePage = () => {
                         </span>
                       ) : null}
                     </div>
-                    {isScoring && isScoring.matchId === match.id && isScoring.side === 'PARTICIPANT_1' && (
-                      <span className="text-xs text-blue-500">Updating...</span>
-                    )}
                   </div>
+                )}
+
+                {(match.status === 'LIVE' || match.status === 'COMPLETED') && (
+                  <p className={`mt-2 text-xs font-semibold ${match.winningPoints ? 'text-blue-700' : 'text-amber-700'}`}>{match.winningPoints ? `Playing to ${match.winningPoints} · Win by 2` : 'Winning points unavailable'}</p>
                 )}
 
                 <div className="flex justify-between items-start mt-2">
@@ -507,7 +495,7 @@ const CategoryFixturePage = () => {
                   <div className="flex justify-between items-start mt-2">
                     <span className="font-medium text-gray-700">P2 Score:</span>
                     <div className="flex items-center space-x-2">
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', -1)}
@@ -527,12 +515,12 @@ const CategoryFixturePage = () => {
                       <span className="text-sm font-mono">
                         {match.participant2Score}
                       </span>
-                      {canScoreMatch(match) && isScoring?.matchId !== match.id ? (
+                      {canScoreMatch(match) ? (
                         <>
                           <button
                             onClick={() => handleUpdateScore(match.id, 'PARTICIPANT_2', 1)}
                             className="w-6 h-6 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-40"
-                            disabled={isExplicitMockApiMode && match.participant2Score >= (match.winningPoints ?? 21)}
+                            disabled={!canIncrementMatchScore(match)}
                             title="Increase score"
                             aria-label="Increase participant 2 score"
                           >
@@ -545,9 +533,6 @@ const CategoryFixturePage = () => {
                         </span>
                       ) : null}
                     </div>
-                    {isScoring && isScoring.matchId === match.id && isScoring.side === 'PARTICIPANT_2' && (
-                      <span className="text-xs text-blue-500">Updating...</span>
-                    )}
                   </div>
                 )}
 
@@ -573,23 +558,18 @@ const CategoryFixturePage = () => {
                 )}
 
                 {/* Complete Match Button */}
-                {canCompleteMatch(match) && !isCompletingMatch && (
-                  <div className="flex justify-between items-start mt-2">
-                    {isCompletingMatch === match.id ? (
-                      <button
-                        onClick={() => handleCompleteMatch(match.id)}
-                        className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                      >
-                        Completing...
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleCompleteMatch(match.id)}
-                        className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                      >
-                        Complete Match
-                      </button>
-                    )}
+                {canCompleteMatch(match) && (
+                  <div className="mt-3">
+                    <p className={`mb-2 text-xs font-semibold ${getCompletionBlockedReason(match) ? 'text-amber-700' : 'text-emerald-700'}`}>{getMatchCompletionStatus(match)}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleCompleteMatch(match.id)}
+                      disabled={isCompletingMatch === match.id || Boolean(getCompletionBlockedReason(match))}
+                      title={getCompletionBlockedReason(match) ?? 'Complete this match'}
+                      className="w-full rounded-lg bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                    >
+                      {isCompletingMatch === match.id ? 'Completing...' : 'Complete Match'}
+                    </button>
                   </div>
                 )}
 
@@ -671,7 +651,7 @@ const CategoryFixturePage = () => {
             )}
           </p>
         </div>
-        {registrationCloseControl}
+        {registrationList}
         {champion && runnerUp && <div className="mb-6 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-amber-200">🏆 Winner</p><p className="mt-1 text-lg font-black text-white">{champion.name}</p></div><div className="rounded-2xl border border-slate-300/30 bg-white/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-300">🥈 Runner-up</p><p className="mt-1 text-lg font-black text-white">{runnerUp.name}</p></div></div>}
 
         {fixtureGenerationControl}
@@ -762,7 +742,7 @@ const CategoryFixturePage = () => {
             )}
           </p>
         </div>
-        {registrationCloseControl}
+        {registrationList}
         {champion && runnerUp && <div className="mb-6 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-amber-200">🏆 Winner</p><p className="mt-1 text-lg font-black text-white">{champion.name}</p></div><div className="rounded-2xl border border-slate-300/30 bg-white/10 p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-300">🥈 Runner-up</p><p className="mt-1 text-lg font-black text-white">{runnerUp.name}</p></div></div>}
 
         {fixtureGenerationControl}

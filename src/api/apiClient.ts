@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import { isAccessTokenExpired } from '@/features/auth/utils/accessToken'
 
 export interface ApiEnvelope<T> {
   success: boolean
@@ -25,6 +26,10 @@ export const isExplicitMockApiMode = import.meta.env.VITE_API_MODE === 'mock'
 export const getCurrentAccessToken = (): string | null => {
   const accessToken = useAuthStore.getState().accessToken
   const normalizedToken = typeof accessToken === 'string' ? accessToken.trim() : ''
+  if (normalizedToken && isAccessTokenExpired(normalizedToken)) {
+    useAuthStore.getState().expireSession()
+    return null
+  }
   return normalizedToken || null
 }
 
@@ -70,7 +75,16 @@ apiClient.interceptors.response.use(
     response.data = unwrapApiData(response.data)
     return response
   },
-  (error) => Promise.reject(normalizeApiError(error)),
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const requestAuthorization = String(error.config?.headers?.Authorization ?? '')
+      const requestToken = requestAuthorization.startsWith('Bearer ') ? requestAuthorization.slice(7) : null
+      const currentToken = useAuthStore.getState().accessToken
+      // Ignore a late 401 from an older request after the user has logged in again.
+      if (currentToken && requestToken === currentToken) useAuthStore.getState().expireSession()
+    }
+    return Promise.reject(normalizeApiError(error))
+  },
 )
 
 export default apiClient

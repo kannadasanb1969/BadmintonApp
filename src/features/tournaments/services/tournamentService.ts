@@ -128,7 +128,12 @@ export const tournamentService = {
     if (isExplicitMockApiMode) throw new Error('Use the local tournament store to close registration in mock mode')
     const user = useAuthStore.getState().user
     if (!user || (user.role !== 'ORGANIZER' && user.role !== 'ADMIN')) throw new Error('Organizer or admin authentication is required')
-    await apiClient.post(`/api/tournaments/${tournamentId}/categories/${categoryId}/close`, {})
+    const response = await apiClient.post<WorkerTournament>(`/api/tournaments/${tournamentId}/categories/${categoryId}/close`, {})
+    if (response.data?.id === tournamentId && Array.isArray(response.data.categories)) {
+      const updated = withClosedCategory(fromWorkerTournament(response.data), categoryId)
+      cacheTournament(updated)
+      return updated
+    }
 
     // A successful close acknowledgement is authoritative for this transition.
     // Apply it to the canonical cache immediately, then reconcile with the GET

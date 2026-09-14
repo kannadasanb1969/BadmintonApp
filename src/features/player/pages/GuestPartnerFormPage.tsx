@@ -52,6 +52,7 @@ const GuestPartnerFormPage = () => {
   const [success, setSuccess] = useState<boolean>(false)
   const [name, setName] = useState<string>('')
   const [mobile, setMobile] = useState<string>('')
+  const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('')
   const [loadingCategoryPhase, setLoadingCategoryPhase] = useState(true)
 
   useEffect(() => {
@@ -93,12 +94,16 @@ const GuestPartnerFormPage = () => {
       if (!name.trim() || !mobile.trim()) {
         throw new Error('Name and mobile number are required')
       }
+      if (!gender) {
+        throw new Error('Gender is required')
+      }
 
       // Create guest player with default values for missing fields
       const currentYear = new Date().getFullYear();
       const guestData = {
         fullName: name.trim(),
         mobile: mobile.trim(),
+        gender,
         dob: '2002-01-01',
         age: 24,
         location: '',
@@ -255,6 +260,23 @@ const GuestPartnerFormPage = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter full name"
           />
+        </div>
+        <div>
+          <label htmlFor="guest-gender" className="block text-sm font-medium text-gray-700 mb-2">
+            Gender <span aria-hidden="true">*</span>
+          </label>
+          <select
+            id="guest-gender"
+            value={gender}
+            onChange={(e) => setGender(e.target.value as 'MALE' | 'FEMALE' | 'OTHER' | '')}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">Select gender</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+            <option value="OTHER">Other</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">

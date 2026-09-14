@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { tournamentService } from '@/features/tournaments/services/tournamentService';
 import { Tournament } from '@/features/tournaments/types/tournament.types';
 import { canSubmitForApproval, displayRegistrationCount, formatDateDisplay, formatTimeDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers';
+import { useTournamentStore } from '@/features/tournaments/store/tournamentStore';
 import { useAuthStore } from '@/store/authStore';
 
 const TournamentDetailPage = () => {
@@ -14,6 +15,27 @@ const TournamentDetailPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittingForApproval, setSubmittingForApproval] = useState(false);
+
+  const [closingCategory, setClosingCategory] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<string | null>(null);
+
+  const closeRegistration = async (categoryId: string) => {
+    if (!user || !tournamentId || closingCategory) return;
+    setClosingCategory(categoryId);
+    setCloseError(null);
+    try {
+      await useTournamentStore.getState().closeCategoryRegistration(user.id, tournamentId, categoryId);
+      const state = useTournamentStore.getState();
+      const updated = state.tournaments.find(item => item.id === tournamentId) ?? state.tournament;
+      if (updated?.id === tournamentId) setTournament(updated);
+    } catch (err) {
+      setCloseError(err instanceof Error ? err.message : 'Unable to close registration');
+    } finally {
+      setClosingCategory(null);
+      setConfirmClose(null);
+    }
+  };
 
   useEffect(() => {
     const fetchTournament = async () => {
@@ -216,9 +238,23 @@ const TournamentDetailPage = () => {
                       <p className="text-gray-600">{category.additionalRuleNotes}</p>
                     </div>
                   )}
-                  <button onClick={() => navigate(`/organizer/tournaments/${tournament.id}/categories/${category.id}`)} className="mt-4 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-600">
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button onClick={() => navigate(`/organizer/tournaments/${tournament.id}/categories/${category.id}`)} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-600">
                     View registrations & fixture shuffle →
                   </button>
+                  {(category.registrationPhase ?? 'OPEN') === 'OPEN' ? (
+                    <button type="button" onClick={() => setConfirmClose(category.id)} disabled={closingCategory !== null} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50">
+                      {closingCategory === category.id ? 'Closing...' : 'Close Tournament'}
+                    </button>
+                  ) : <span className="text-sm font-semibold text-rose-700">Registration Closed</span>}
+                  </div>
+                  {confirmClose === category.id && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-sm text-slate-800">Close registration for {category.name}? New entries will no longer be accepted. You can still generate and play fixtures.</p>
+                    <div className="mt-3 flex gap-3">
+                      <button type="button" disabled={closingCategory !== null} onClick={() => closeRegistration(category.id)} className="rounded bg-rose-600 px-4 py-2 text-white disabled:opacity-50">Confirm Close</button>
+                      <button type="button" disabled={closingCategory !== null} onClick={() => setConfirmClose(null)} className="rounded bg-slate-200 px-4 py-2 text-slate-900">Cancel</button>
+                    </div>
+                  </div>}
                 </div>
               ))}
             </div>
@@ -246,6 +282,7 @@ const TournamentDetailPage = () => {
           </div>
         )}
 
+        {closeError && <p role="alert" className="mt-4 text-red-700">{closeError}</p>}
         {submitError && (
           <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700">
             {submitError}

@@ -1,3 +1,4 @@
+import type { CategoryResult } from '@/features/fixtures/types/fixture.types';
 // EventType and TournamentFormat are defined here for now.
 // If they become shared across features, they can be moved to root types.
 
@@ -16,6 +17,8 @@ export type GenderEligibility = 'OPEN' | 'WOMEN_ONLY' | 'MEN_ONLY';
 export type RegistrationPhase = 'OPEN' | 'CLOSED';
 
 export interface TournamentCategory {
+  completionStatus?: 'COMPLETED' | 'IN_PROGRESS';
+  result?: CategoryResult | null;
   id: string;
   name: string;
   eventType: EventType;
@@ -36,6 +39,8 @@ export interface TournamentCategory {
 }
 
 export interface Tournament {
+  completionStatus?: 'COMPLETED' | 'IN_PROGRESS';
+  result?: CategoryResult | null;
   id: string;
   tournamentCode: string;
   organizerId: string;

@@ -1,291 +1,69 @@
-import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import PlayerProfileForm from '@/features/player/components/PlayerProfileForm'
-import { PlayerProfile } from '@/features/player/types/player.types'
-import { MedalHistory } from '@/features/medals/types/medalHistory.types'
+import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { medalHistoryService } from '@/features/medals/services/medalHistoryService'
-import { useState, useEffect } from 'react'
+import { MedalHistory } from '@/features/medals/types/medalHistory.types'
+import { registrationService } from '@/features/registrations/services/registrationService'
+import { Registration } from '@/features/registrations/types/registration.types'
+import { tournamentService } from '@/features/tournaments/services/tournamentService'
+import { Tournament } from '@/features/tournaments/types/tournament.types'
+
+const initials = (name: string) => name.split(' ').map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 
 const PlayerProfilePage = () => {
   const { profile, hasProfile } = usePlayerProfileStore()
   const navigate = useNavigate()
   const location = useLocation()
   const isEditRoute = location.pathname === '/player/profile/edit'
-  const [medalHistory, setMedalHistory] = useState<MedalHistory[]>([])
-  const [medalHistoryLoading, setMedalHistoryLoading] = useState<boolean>(false)
-  const [medalHistoryError, setMedalHistoryError] = useState<string | null>(null)
+  const [medals, setMedals] = useState<MedalHistory[]>([])
+  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [loading, setLoading] = useState(false)
 
-  // Load medal history when profile loads
   useEffect(() => {
-    if (hasProfile && profile) {
-      const loadMedalHistory = async () => {
-        setMedalHistoryLoading(true)
-        setMedalHistoryError(null)
-        try {
-          const playerMedals = await medalHistoryService.getPlayerMedals(profile.id)
-          setMedalHistory(playerMedals)
-        } catch (err) {
-          setMedalHistoryError(err instanceof Error ? err.message : 'Failed to load medal history')
-        } finally {
-          setMedalHistoryLoading(false)
-        }
-      }
+    if (!profile) return
+    let cancelled = false
+    setLoading(true)
+    void Promise.all([medalHistoryService.getPlayerMedals(profile.id), registrationService.getPlayerRegistrations(profile.id), tournamentService.getTournaments()])
+      .then(([playerMedals, playerRegistrations, tournamentList]) => { if (!cancelled) { setMedals(playerMedals); setRegistrations(playerRegistrations); setTournaments(tournamentList) } })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [profile?.id])
 
-      loadMedalHistory()
-    }
-  }, [hasProfile, profile])
+  if (!hasProfile && isEditRoute) return <Navigate to="/player/profile" replace />
+  if (!hasProfile) return <PlayerProfileForm onProfileCreated={() => navigate('/player/profile', { replace: true })} />
+  if (isEditRoute) return <PlayerProfileForm profile={profile} onProfileCreated={() => navigate('/player/profile', { replace: true })} />
 
-  // If there's no profile and we're on the edit route, redirect to the profile page
-  if (!hasProfile && isEditRoute) {
-    return <Navigate to="/player/profile" replace />
+  const gold = medals.filter((medal) => medal.medalType === 'GOLD').length
+  const silver = medals.filter((medal) => medal.medalType === 'SILVER').length
+  const events = Array.from(new Set(registrations.filter((item) => item.status === 'REGISTERED').map((item) => item.eventType)))
+  const tournamentById = new Map(tournaments.map((item) => [item.id, item]))
+  const recentMedals = [...medals].sort((a, b) => new Date(b.achievedAt).getTime() - new Date(a.achievedAt).getTime()).slice(0, 3)
+  const stats = [{ value: profile.age, label: 'Age' }, { value: profile.location || '—', label: 'Location' }, { value: `${profile.experienceYears} yrs`, label: 'Experience' }, { value: profile.regularPlayer ? 'Yes' : 'No', label: 'Regular player' }]
+
+  const share = async () => {
+    const data = { title: `${profile.fullName} · SmashPoint`, text: `${profile.fullName} (${profile.playerCode}) · Play • Connect • Compete`, url: window.location.href }
+    if (navigator.share) await navigator.share(data)
+    else await navigator.clipboard?.writeText(data.url)
+  }
+  const download = () => {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([`SMASHPOINT PLAYER CARD\n${profile.fullName}\n${profile.playerCode}\n${profile.location || 'Location not shared'}\nPlay • Connect • Compete`], { type: 'text/plain' }))
+    link.download = `smashpoint-${profile.playerCode}.txt`; link.click(); URL.revokeObjectURL(link.href)
   }
 
-  const handleProfileCreated = () => {
-    // After creating or updating a profile, if we were on the edit route, go back to view
-    if (isEditRoute) {
-      navigate('/player/profile', { replace: true })
-    }
-  }
+  return <div className="mx-auto max-w-6xl space-y-5 pb-6 text-slate-100">
+    <section className="relative overflow-hidden rounded-3xl border border-emerald-300/15 bg-gradient-to-br from-[#071428] via-[#0b1d35] to-[#063d35] p-5 shadow-2xl sm:p-8"><div className="absolute -right-16 -top-20 h-64 w-64 rounded-full border-[28px] border-emerald-300/10" /><div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4 sm:gap-5">{profile.profilePhoto ? <img src={profile.profilePhoto} alt={`${profile.fullName} profile`} className="h-24 w-24 rounded-3xl border-2 border-emerald-300 object-cover shadow-xl sm:h-28 sm:w-28" /> : <div className="flex h-24 w-24 items-center justify-center rounded-3xl border-2 border-emerald-300 bg-emerald-300 text-2xl font-black text-emerald-950 shadow-xl sm:h-28 sm:w-28">{initials(profile.fullName)}</div>}<div><p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-300">SmashPoint player</p><h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{profile.fullName}</h1><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-white/10 px-3 py-1 text-sm font-bold text-emerald-200">{profile.playerCode}</span><span className="rounded-full border border-emerald-300/25 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-200">{profile.profileStatus === 'ACTIVE' ? '✓ Verified player' : 'Profile incomplete'}</span></div><p className="mt-3 text-sm text-slate-300">📍 {profile.location || 'Location not added'} · Play • Connect • Compete</p></div></div><button type="button" onClick={() => navigate('/player/profile/edit')} className="rounded-xl bg-emerald-300 px-5 py-3 text-sm font-black text-emerald-950 transition hover:bg-white">Edit Profile</button></div></section>
 
-  if (!hasProfile) {
-    // No profile, show the create form
-    return <PlayerProfileForm onProfileCreated={handleProfileCreated} />
-  }
+    <section className="grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-800 bg-[#091a2e] sm:grid-cols-4">{stats.map((stat) => <div key={stat.label} className="border-b border-r border-slate-800 p-4 text-center last:border-r-0 sm:border-b-0"><p className="truncate text-lg font-black text-white">{stat.value}</p><p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{stat.label}</p></div>)}</section>
 
-  // We have a profile
-  if (isEditRoute) {
-    // Show the edit form with the existing profile
-    return <PlayerProfileForm profile={profile} onProfileCreated={handleProfileCreated} />
-  }
-
-  // Show the profile view
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Profile Header Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-900 p-6 text-white shadow-xl sm:p-8 mb-8">
-            <div className="absolute -right-12 -top-16 h-52 w-52 rounded-full border-[24px] border-emerald-300/10" />
-            <p className="relative mb-5 text-xs font-bold uppercase tracking-[.22em] text-emerald-300">🏸 Player card</p><div className="relative grid grid-cols-1 lg:grid-cols-2 lg:items-start lg:gap-8">
-              {/* Avatar and Info */}
-
-              <div className="flex flex-col items-center lg:items-start lg:mb-0 lg:space-y-4">
-                {profile.profilePhoto ? (
-                  <img
-                    src={profile.profilePhoto}
-                    alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover border-4 border-emerald-300 shadow-xl"
-                  />
-                ) : (
-                  <div className="w-24 h-24 bg-emerald-300 rounded-full flex items-center justify-center shadow-xl">
-                    <span className="text-emerald-950 font-black text-lg">
-                      {profile.fullName
-                        .split(' ')
-                        .map(n => n[0])
-                        .join('')
-                        .toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <div className="text-center lg:text-left space-y-3">
-                  <h2 className="text-3xl font-black text-white">
-                    {profile.fullName}
-                  </h2>
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-white/10 text-emerald-200 text-sm font-bold px-3 py-1 rounded-full">
-                      {profile.playerCode}
-                    </div>
-                    <span className={
-                      `px-2 py-1 rounded-full text-sm font-medium
-                      ${profile.profileStatus === 'ACTIVE'
-                        ? 'bg-emerald-300 text-emerald-950'
-                        : 'bg-white/10 text-slate-300'}
-                    `}
-                    >
-                      {profile.profileStatus === 'ACTIVE' ? 'Active' : 'Incomplete'}
-                    </span>
-                  </div>
-                  <div className="text-sm text-slate-300">📍 {profile.location} · {profile.experienceYears} years on court</div>
-                </div>
-              </div>
-
-              {/* Edit Profile Button */}
-              <div className="lg:col-span-2 lg:flex lg:justify-end lg:items-center lg:mt-0">
-                <button
-                  onClick={() => navigate('/player/profile/edit')}
-                  className="px-6 py-3 bg-emerald-400 text-slate-950 rounded-xl font-bold hover:bg-white transition-colors"
-                >
-                  Edit Profile
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid gap-6 mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Age */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-center">
-                <p className="text-xl font-black text-slate-900">
-                  {profile.age}
-                </p>
-                <p className="text-sm text-gray-500 uppercase tracking-wider">
-                  Age
-                </p>
-              </div>
-              {/* Experience */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-center">
-                <p className="text-xl font-black text-slate-900">
-                  {profile.experienceYears}
-                </p>
-                <p className="text-sm text-gray-500 uppercase tracking-wider">
-                  Experience
-                </p>
-              </div>
-              {/* Playing Since */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-center">
-                <p className="text-xl font-black text-slate-900">
-                  {profile.playingSince}
-                </p>
-                <p className="text-sm text-gray-500 uppercase tracking-wider">
-                  Playing Since
-                </p>
-              </div>
-              {/* Regular Player */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-center">
-                <p className="text-xl font-black text-slate-900">
-                  {profile.regularPlayer ? 'Yes' : 'No'}
-                </p>
-                <p className="text-sm text-gray-500 uppercase tracking-wider">
-                  Player Type
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Personal Information Card */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-6">
-              Player details
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <p className="text-sm font-medium text-gray-500">
-                  Mobile
-                </p>
-                <p className="text-lg font-medium text-gray-900">
-                  {profile.mobile}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <p className="text-sm font-medium text-gray-500">
-                  Location
-                </p>
-                <p className="text-lg font-medium text-gray-900">
-                  {profile.location}
-                </p>
-              </div>
-              {profile.regularPlayer ? (
-                <>
-                  <div className="grid gap-2">
-                    <p className="text-sm font-medium text-gray-500">
-                      Court/Academy
-                    </p>
-                    <p className="text-lg font-medium text-gray-900">
-                      {profile.courtAcademy}
-                    </p>
-                  </div>
-                  <div className="grid gap-2">
-                    <p className="text-sm font-medium text-gray-500">
-                      Profile Status
-                    </p>
-                    <p className="text-lg font-medium text-gray-900">
-                      {profile.profileStatus}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium text-gray-500">
-                    Profile Status
-                  </p>
-                  <p className="text-lg font-medium text-gray-900">
-                    {profile.profileStatus}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Medal History Section */}
-          {hasProfile && profile && (
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 mt-8">
-              <h2 className="text-xl font-bold text-slate-900 mb-6">
-                🏆 Achievements & medals
-              </h2>
-
-              {medalHistoryLoading && (
-                <div className="text-center py-8">
-                  Loading medal history...
-                </div>
-              )}
-
-              {medalHistoryError && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded">
-                  Error loading medal history: {medalHistoryError}
-                </div>
-              )}
-
-              {!medalHistoryLoading && !medalHistoryError && medalHistory.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No medal history yet. Participate in tournaments to earn medals!
-                </div>
-              )}
-
-              {!medalHistoryLoading && !medalHistoryError && medalHistory.length > 0 && (
-                <div className="space-y-4">
-                  {medalHistory.map(medal => (
-                    <div key={medal.id} className="border p-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 flex-shrink-0">
-                          {medal.medalType === 'GOLD' ? (
-                            <div className="w-full h-full bg-yellow-300 rounded-full flex items-center justify-center">
-                              <span className="text-yellow-800 text-sm font-bold">🥇</span>
-                            </div>
-                          ) : (
-                            <div className="w-full h-full bg-gray-300 rounded-full flex items-center justify-center">
-                              <span className="text-gray-800 text-sm font-bold">🥈</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex justify-between">
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {medal.tournamentName}
-                            </h3>
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
-                              {medal.categoryName}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            {medal.eventType} • {medal.position === 'WINNER' ? 'Champion' : 'Runner-Up'}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Achieved: {new Date(medal.achievedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+    <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]"><div className="space-y-5"><section className="rounded-2xl border border-slate-800 bg-[#0a192b] p-5"><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">About me</p><p className="mt-3 text-sm leading-6 text-slate-300">Tell other players about your badminton journey.</p><div className="mt-4 flex flex-wrap gap-2">{events.length ? events.map((event) => <span key={event} className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-200">🏸 {event === 'SINGLES' ? 'Singles' : 'Doubles'}</span>) : <span className="text-sm text-slate-500">Preferred events will appear after your first entry.</span>}</div></section>
+      <section className="rounded-2xl border border-slate-800 bg-[#0a192b] p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Tournament history</p><h2 className="mt-1 text-xl font-black text-white">Your entries</h2></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">{registrations.length}</span></div>{loading ? <p className="mt-5 text-sm text-slate-400">Loading history...</p> : registrations.length === 0 ? <p className="mt-5 text-sm text-slate-400">Your tournament entries will appear here.</p> : <div className="mt-5 space-y-3">{registrations.slice(0, 5).map((registration) => { const tournament = tournamentById.get(registration.tournamentId); const medal = medals.find((item) => item.tournamentId === registration.tournamentId && item.categoryId === registration.categoryId); return <article key={registration.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/[.04] p-4"><div className="min-w-0"><p className="truncate font-bold text-white">{tournament?.name ?? registration.tournamentCode}</p><p className="mt-1 text-xs text-slate-400">{registration.categoryName} · {registration.eventType}</p></div><span className="shrink-0 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-bold text-emerald-200">{medal ? (medal.position === 'WINNER' ? 'Winner' : 'Runner Up') : registration.status}</span></article> })}</div>}</section></div>
+      <div className="space-y-5"><section className="rounded-2xl border border-slate-800 bg-[#0a192b] p-5"><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Achievements</p><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-amber-300/10 p-4 text-center"><p className="text-2xl">🥇</p><p className="mt-1 text-2xl font-black text-amber-200">{gold}</p><p className="text-xs font-bold uppercase text-amber-100/70">Gold medals</p></div><div className="rounded-xl bg-slate-200/10 p-4 text-center"><p className="text-2xl">🥈</p><p className="mt-1 text-2xl font-black text-slate-100">{silver}</p><p className="text-xs font-bold uppercase text-slate-300">Silver medals</p></div></div>{recentMedals.length > 0 && <div className="mt-5 space-y-3">{recentMedals.map((medal) => <div key={medal.id} className="rounded-xl border border-slate-800 p-3"><p className="font-bold text-white">{medal.position === 'WINNER' ? '🏆 Winner' : '🥈 Runner Up'}</p><p className="mt-1 truncate text-sm text-slate-300">{medal.tournamentName}</p><p className="mt-1 text-xs text-slate-500">{medal.categoryName} · {new Date(medal.achievedAt).toLocaleDateString()}</p></div>)}</div>}</section>
+      <section className="overflow-hidden rounded-2xl border border-emerald-300/20 bg-gradient-to-br from-[#0d2c31] to-[#081629] p-5"><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Player card</p><div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-4"><p className="text-sm font-black text-emerald-300">SMASHPOINT</p><p className="mt-4 text-xl font-black text-white">{profile.fullName}</p><p className="mt-1 text-sm font-bold text-slate-300">{profile.playerCode}</p><p className="mt-5 text-xs text-slate-400">{profile.location || 'SmashPoint Player'} · Play • Connect • Compete</p></div><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={download} className="rounded-xl bg-white px-3 py-2.5 text-xs font-black text-slate-900">Download Card</button><button type="button" onClick={() => void share()} className="rounded-xl border border-emerald-300/40 px-3 py-2.5 text-xs font-black text-emerald-200">Share</button></div></section></div></div>
+  </div>
 }
 
 export default PlayerProfilePage

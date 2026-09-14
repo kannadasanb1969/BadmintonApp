@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { hydrateAndSyncDomainData } from '@/api/domainDataSync'
 import { isExplicitMockApiMode } from '@/api/apiClient'
@@ -13,11 +13,13 @@ import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { resultService } from '@/features/results/services/resultService'
 import { medalHistoryService } from '@/features/medals/services/medalHistoryService'
 import { notificationApiService } from '@/features/notifications/services/notificationApiService'
-
-const queryClient = new QueryClient()
+import { queryClient } from '@/api/queryClient'
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
+  const hasHydrated = useAuthStore((state) => state.hasHydrated)
+
   useEffect(() => {
+    if (!hasHydrated) return
     void hydrateAndSyncDomainData()
     if (isExplicitMockApiMode) return
 
@@ -53,7 +55,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         // Preserve the persisted session on transient network failures. Login and
         // profile mutations still surface the Worker error to the calling UI.
       })
-  }, [])
+  }, [hasHydrated])
   return (
     <QueryClientProvider client={queryClient}>
       {children}
