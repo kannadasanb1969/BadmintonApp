@@ -5,6 +5,13 @@ export const unpairedFriendlyParticipants = (participants: FriendlyParticipant[]
   return participants.filter(participant => !pairedIds.has(participant.player_id))
 }
 
+export const friendlyTeamForParticipant = (playerId: string, teams: FriendlyTeam[]) => teams.find(team => (team.members ?? []).some(member => member.id === playerId)) ?? null
+export const selectableFriendlyParticipants = (participants: FriendlyParticipant[], teams: FriendlyTeam[], excludePlayerId = '') => unpairedFriendlyParticipants(participants, teams).filter(participant => participant.player_id !== excludePlayerId)
+export const canCreateFriendlyTeamFromUnpaired = (ids: string[], participants: FriendlyParticipant[], teams: FriendlyTeam[]) => {
+  const available = new Set(unpairedFriendlyParticipants(participants, teams).map(participant => participant.player_id))
+  return canCreateManualPair(ids) && ids.every(id => available.has(id))
+}
+
 export const canShowTeamSetup = (eventType: string, isCreator: boolean) => eventType === 'DOUBLES' && isCreator
 export const canCreateManualPair = (ids: string[]) => ids.length === 2 && ids[0] !== ids[1] && ids.every(Boolean)
 export const shuffleDisabledReason = (count: number) => count === 0 ? 'At least two unpaired players are required.' : count % 2 ? 'An even number of unpaired players is required.' : count < 2 ? 'At least two unpaired players are required.' : null
