@@ -414,6 +414,11 @@
   .fixture-round:nth-child(2) { padding-top: 4.5rem; }
   .fixture-round:nth-child(3) { padding-top: 9rem; }
   .fixture-match-card { @apply border-white/10 bg-gradient-to-br from-white to-blue-50 text-slate-900 shadow-xl shadow-black/20; }
+  .fixture-match-card-live { border-color: rgb(52 211 153 / .22); background: linear-gradient(145deg, rgb(7 31 63 / .96), rgb(3 21 46 / .98)); color: white; box-shadow: 0 1rem 2.5rem rgb(1 9 24 / .28); }
+  .live-score-row { display: flex; min-width: 0; min-height: 3.25rem; align-items: center; justify-content: space-between; gap: .75rem; border: 1px solid rgb(148 163 184 / .16); border-radius: .85rem; padding: .7rem .85rem; background: rgb(255 255 255 / .055); }
+  .live-score-row strong { flex: none; color: white; font-size: 1.45rem; }
+  .live-score-dot { display: inline-block; width: .48rem; height: .48rem; flex: none; border-radius: 9999px; background: rgb(52 211 153); box-shadow: 0 0 0 .2rem rgb(52 211 153 / .12); animation: live-score-pulse 1.8s ease-in-out infinite; }
+  @keyframes live-score-pulse { 50% { opacity: .48; box-shadow: 0 0 0 .38rem rgb(52 211 153 / 0); } }
   .fixture-match-card .text-gray-700 { @apply text-slate-700; }
   .fixture-match-card button { @apply rounded-lg; }
   .fixture-match-card .match-start-panel { @apply rounded-xl border border-blue-100 bg-blue-50 p-3; }
@@ -477,6 +482,7 @@
   @media (prefers-reduced-motion: reduce) {
     .animated-score--changing, .animated-score--changing .animated-score__new { animation: none; }
     .animated-score--changing .animated-score__old { display: none; animation: none; }
+    .live-score-dot { animation: none; }
   }
 
   @media (max-width: 640px) {
