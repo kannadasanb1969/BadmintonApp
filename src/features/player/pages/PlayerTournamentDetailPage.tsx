@@ -472,26 +472,13 @@ const PlayerTournamentDetailPage = () => {
 
         <p><strong>Entry code</strong><span>{tournament.tournamentCode}</span></p>
 
-        <p><strong>Match date</strong><span>{formatDateDisplay(tournament.tournamentDate)}</span></p>
-
-        <p><strong>Report by</strong><span>{formatTimeDisplay(tournament.reportingTime)}</span></p>
-
-        <p><strong>Registration closes</strong><span>
-          {formatDateDisplay(
-            tournament.registrationCloseDate
-          )}{' '}
-          at{' '}
-          {formatTimeDisplay(
-            tournament.registrationCloseTime
-          )}</span></p>
-
-        <p><strong>Venue</strong><span>{tournament.venueName}</span></p>
-
-        <p><strong>Address</strong><span>{tournament.venueAddress}</span></p>
-
         <p><strong>Draw format</strong><span>{tournament.format}</span></p>
 
+        <p><strong>Match date</strong><span>{formatDateDisplay(tournament.tournamentDate)}</span></p>
+
         <p><strong>Entry status</strong><span className="player-published">● {tournament.status}</span></p>
+
+        <p><strong>Report by</strong><span>{formatTimeDisplay(tournament.reportingTime)}</span></p>
 
         {tournament.mapLink && (
           <p><strong>Venue map</strong>
@@ -506,6 +493,15 @@ const PlayerTournamentDetailPage = () => {
           </p>
         )}
 
+        <p><strong>Registration closes</strong><span>
+          {formatDateDisplay(
+            tournament.registrationCloseDate
+          )}{' '}
+          at{' '}
+          {formatTimeDisplay(
+            tournament.registrationCloseTime
+          )}</span></p>
+
         {tournament.description && (
           <p className="player-info-wide"><strong>About this tournament</strong><span>{tournament.description}</span></p>
         )}
@@ -514,9 +510,13 @@ const PlayerTournamentDetailPage = () => {
           <p><strong>Prize pool</strong><span>{tournament.prizes}</span></p>
         )}
 
+        <p><strong>Venue</strong><span>{tournament.venueName}</span></p>
+
         {tournament.shuttle && (
           <p><strong>Shuttle</strong><span>{tournament.shuttle}</span></p>
         )}
+
+        <p><strong>Address</strong><span>{tournament.venueAddress}</span></p>
 
         {tournament.scoringFormat && (
           <p><strong>Scoring</strong><span>{tournament.scoringFormat}</span></p>

@@ -333,13 +333,34 @@
   .player-tournament-page .player-section-title p,
   .player-tournament-page .player-category-label { @apply text-lime-300; }
   .player-tournament-page .player-info-grid > p { @apply border border-sky-300/20 bg-[#061820]/80; }
+  .player-tournament-page .player-info-grid { @apply gap-2 sm:grid-cols-2 lg:grid-cols-2; }
+  .player-tournament-page .player-info-grid > p { @apply min-h-12 justify-center rounded-xl px-4 py-2; }
   .player-tournament-page .player-info-grid strong { @apply text-slate-400; }
   .player-tournament-page .player-info-grid span { @apply text-slate-100; }
+  .player-tournament-page .player-map-link { @apply text-sky-400; }
   .player-tournament-page .player-category-card .text-gray-500,
   .player-tournament-page .player-category-card .text-gray-600 { @apply text-slate-300; }
   .player-tournament-page .player-eligibility-panel { @apply border-sky-300/20; }
   .player-tournament-page .player-empty-medals,
   .player-tournament-page .player-tournament-empty { @apply border-sky-300/30 bg-[#061b1f]/85 text-slate-300; }
+  .player-tournament-page .player-section-heading > span { @apply rounded-full border border-emerald-300/25 bg-emerald-400/10 text-lime-300; }
+  .player-tournament-page .player-section-title > span { @apply border border-emerald-300/50 bg-emerald-950/70 text-emerald-200; }
+  .player-tournament-page .player-category-count { @apply border border-blue-400/50 bg-blue-950/70 text-blue-200; }
+  .player-tournament-page .player-category-card .bg-gray-50,
+  .player-tournament-page .player-category-card .bg-white { @apply border border-sky-300/25 bg-[#061820]/85 text-slate-100; }
+  .player-tournament-page .player-category-card .text-gray-700,
+  .player-tournament-page .player-category-card .text-gray-500 { @apply text-slate-300; }
+  .player-tournament-page .player-category-card .border-slate-100,
+  .player-tournament-page .player-category-card .border-slate-200 { @apply border-sky-300/20; }
+  .player-tournament-page .player-category-card .bg-emerald-50 { @apply border border-lime-300/60 bg-emerald-950/70; }
+  .player-tournament-page .player-category-card .bg-slate-50 { @apply border border-sky-300/25 bg-[#061820]/85; }
+  .player-tournament-page .player-category-card .text-emerald-800,
+  .player-tournament-page .player-category-card .text-emerald-700 { @apply text-emerald-200; }
+  .player-tournament-page .player-category-card .text-slate-800,
+  .player-tournament-page .player-category-card .text-slate-600 { @apply text-slate-200; }
+  .player-tournament-page .player-category-card .text-green-600 { @apply text-emerald-300; }
+  .player-tournament-page .player-category-card button { @apply bg-lime-300 text-slate-950 hover:bg-lime-200; }
+  .player-tournament-page .player-tournament-action { @apply bg-lime-300 text-slate-950 hover:bg-lime-200; }
 
   .mobile-app-shell .mobile-primary-button { @apply bg-lime-300 text-slate-950 shadow-[0_0_22px_rgb(180_255_35_/_0.22)] hover:bg-lime-200; }
   .mobile-app-shell .mobile-card { @apply border-emerald-300/25 bg-[#061b1f]/85 text-slate-100 shadow-lg; }
@@ -524,6 +545,55 @@
   .player-empty-medals { @apply rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-6 text-center text-sm font-medium text-slate-500; }
   .player-medal-card { @apply rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm; }
   .player-tournament-empty { @apply rounded-3xl bg-white p-6 shadow-lg; }
+
+  .player-tournament-page {
+    @apply min-h-full bg-[#020e12] text-slate-100;
+    background-image: linear-gradient(180deg, rgb(2 14 18 / .84), rgb(2 14 18 / .98)), url('../assets/ref2.png');
+    background-attachment: fixed;
+    background-position: center;
+    background-size: cover;
+  }
+  .player-tournament-page .player-tournament-hero {
+    @apply border border-lime-300/70 bg-[#061b1f]/70;
+    background-image: linear-gradient(90deg, rgb(2 17 20 / .88), rgb(2 17 20 / .36)), url('../assets/playinfo.png');
+    background-position: center;
+    background-size: cover;
+  }
+  .player-tournament-page .player-tournament-action { @apply bg-lime-300 text-slate-950 hover:bg-lime-200; }
+  .player-tournament-page .player-tournament-info,
+  .player-tournament-page .player-rules-card,
+  .player-tournament-page .player-category-card { @apply border-emerald-300/30 bg-[#061b1f]/88 text-slate-100 shadow-lg; }
+  .player-tournament-page .player-section-heading > span { @apply rounded-full border border-emerald-300/25 bg-emerald-400/10 text-lime-300; }
+  .player-tournament-page .player-section-heading p,
+  .player-tournament-page .player-section-title p,
+  .player-tournament-page .player-category-label { @apply text-lime-300; }
+  .player-tournament-page .player-section-heading h2,
+  .player-tournament-page .player-section-title h2,
+  .player-tournament-page .player-category-card h3 { @apply text-white; }
+  .player-tournament-page .player-info-grid { @apply gap-2 sm:grid-cols-2 lg:grid-cols-2; }
+  .player-tournament-page .player-info-grid > p { @apply min-h-12 justify-center rounded-xl border-sky-300/25 bg-[#061820]/85 px-4 py-2; }
+  .player-tournament-page .player-info-grid strong { @apply text-slate-400; }
+  .player-tournament-page .player-info-grid span { @apply text-slate-100; }
+  .player-tournament-page .player-map-link { @apply text-sky-400; }
+  .player-tournament-page .player-category-count { @apply border border-blue-400/50 bg-blue-950/70 text-blue-200; }
+  .player-tournament-page .player-category-card .bg-gray-50,
+  .player-tournament-page .player-category-card .bg-white { @apply border border-sky-300/25 bg-[#061820]/85 text-slate-100; }
+  .player-tournament-page .player-category-card .border-slate-100,
+  .player-tournament-page .player-category-card .border-slate-200 { @apply border-sky-300/20; }
+  .player-tournament-page .player-category-card .text-gray-700,
+  .player-tournament-page .player-category-card .text-gray-500,
+  .player-tournament-page .player-category-card .text-gray-600 { @apply text-slate-300; }
+  .player-tournament-page .player-category-card .bg-emerald-50 { @apply border border-lime-300/60 bg-emerald-950/70; }
+  .player-tournament-page .player-category-card .bg-slate-50 { @apply border border-sky-300/25 bg-[#061820]/85; }
+  .player-tournament-page .player-category-card .text-emerald-800,
+  .player-tournament-page .player-category-card .text-emerald-700 { @apply text-emerald-200; }
+  .player-tournament-page .player-category-card .text-slate-800,
+  .player-tournament-page .player-category-card .text-slate-600 { @apply text-slate-200; }
+  .player-tournament-page .player-category-card .text-green-600 { @apply text-emerald-300; }
+  .player-tournament-page .player-category-card button { @apply bg-lime-300 text-slate-950 hover:bg-lime-200; }
+  .player-tournament-page .player-eligibility-panel { @apply border-sky-300/20; }
+  .player-tournament-page .player-empty-medals,
+  .player-tournament-page .player-tournament-empty { @apply border-sky-300/30 bg-[#061b1f]/85 text-slate-300; }
 
   .animated-score { display: inline-grid; min-inline-size: 3ch; place-items: center; border-radius: .5rem; font-variant-numeric: tabular-nums; line-height: 1.15; }
   .animated-score > * { grid-area: 1 / 1; }
