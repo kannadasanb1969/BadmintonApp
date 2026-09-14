@@ -13,6 +13,7 @@ import { eligibilityService } from '@/features/eligibility/services/eligibilityS
 import { Fixture, FixtureMatch } from '@/features/fixtures/types/fixture.types'
 import { MedalHistory } from '@/features/medals/types/medalHistory.types'
 import { medalHistoryService } from '@/features/medals/services/medalHistoryService'
+import { AnimatedScore } from '@/features/matches/components/AnimatedScore'
 
 import {
   formatDateDisplay,
@@ -739,7 +740,7 @@ const PlayerTournamentDetailPage = () => {
                                 </span>
 
                                 <span className="text-sm font-mono">
-                                  {match.participant1Score}
+                                  <AnimatedScore value={match.participant1Score} active={match.status === 'LIVE'} />
                                 </span>
                               </div>
                             )}
@@ -781,7 +782,7 @@ const PlayerTournamentDetailPage = () => {
                                 </span>
 
                                 <span className="text-sm font-mono">
-                                  {match.participant2Score}
+                                  <AnimatedScore value={match.participant2Score} active={match.status === 'LIVE'} />
                                 </span>
                               </div>
                             )}
