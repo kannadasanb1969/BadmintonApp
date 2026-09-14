@@ -86,7 +86,7 @@ const PlayerRegistrationsView = ({ query = '', eventType = 'ALL' }: { query?: st
 
   if (registrations.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="player-tournament-page space-y-6 rounded-3xl px-4 py-5 sm:px-6 sm:py-8">
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center shadow-sm"><div className="text-4xl">🏸</div><p className="mt-4 text-lg font-bold text-slate-800">No tournaments yet</p><p className="mt-2 text-sm text-slate-500">Your confirmed tournament entries will appear here.</p><div className="mt-5"><button
               type="button"
               onClick={() => navigate('/player/tournaments')}
@@ -112,7 +112,7 @@ const PlayerRegistrationsView = ({ query = '', eventType = 'ALL' }: { query?: st
   })
 
   return (
-    <div className="space-y-6">
+    <div className="player-tournament-page space-y-6 rounded-3xl px-4 py-5 sm:px-6 sm:py-8">
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500">{visibleRegistrations.length} Registrations</p>
