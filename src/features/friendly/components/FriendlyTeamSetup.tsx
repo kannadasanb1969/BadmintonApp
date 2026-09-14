@@ -15,7 +15,13 @@ export const FriendlyTeamSetup = ({ friendlyId }: { friendlyId: string }) => {
   const busy = create.isPending || remove.isPending || shuffle.isPending || reset.isPending
   const effectiveLocked = locked || Boolean(fixturesQuery.data)
   const run = async (work: () => Promise<unknown>, success: string, clear = false) => { if (busy || effectiveLocked) return; setError(null); setMessage(null); try { await work(); if (clear) { setFirst(''); setSecond('') } setMessage(success) } catch (cause) { if (isLockError(cause)) { setLocked(true); setError(pairingLockedMessage) } else { const text = cause instanceof Error ? cause.message : 'Unable to update teams.'; setError(text); if (text === 'Team not found') { const refreshed = await teamsQuery.refetch(); if (refreshed.isSuccess) setError(null) } } } }
-  const createNow = async () => { if (!canCreateFriendlyTeamFromUnpaired([first, second], participants, teams)) { setError('One of the selected players is already paired. Please select again.'); setFirst(''); setSecond(''); await Promise.all([teamsQuery.refetch(), participantsQuery.refetch()]); return } await run(() => create.mutateAsync([first, second]), 'Team created.', true) }
+  const createNow = async () => {
+    const selected: [string, string] = [first, second]
+    if (!canCreateFriendlyTeamFromUnpaired(selected, participants, teams)) { setError('One of the selected players is already paired. Please select again.'); setFirst(''); setSecond(''); await teamsQuery.refetch(); return }
+    setError(null); setMessage(null); setFirst(''); setSecond('')
+    try { await create.mutateAsync(selected); setMessage('Team created.') }
+    catch (cause) { setFirst(selected[0]); setSecond(selected[1]); if (isLockError(cause)) { setLocked(true); setError(pairingLockedMessage) } else setError(cause instanceof Error ? cause.message : 'Unable to create team.') }
+  }
   const resetNow = async () => { if (reset.isPending) return; setError(null); try { await reset.mutateAsync(); setLocked(false); setMessage('Fixtures reset. Team editing is available.'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to reset fixtures.') } }
   if (teamsQuery.isLoading || participantsQuery.isLoading) return <section className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Team Setup</h2><p className="mt-4">Loading teams...</p></section>
   const queryError = teamsQuery.error ?? participantsQuery.error
