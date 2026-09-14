@@ -462,6 +462,23 @@
   .player-medal-card { @apply rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm; }
   .player-tournament-empty { @apply rounded-3xl bg-white p-6 shadow-lg; }
 
+  .animated-score { display: inline-grid; min-inline-size: 3ch; place-items: center; border-radius: .5rem; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .animated-score > * { grid-area: 1 / 1; }
+  .animated-score--changing { animation: score-green-glow 400ms ease-out; }
+  .animated-score--up .animated-score__old { animation: score-old-up 400ms ease-out both; }
+  .animated-score--up .animated-score__new { animation: score-new-up 400ms cubic-bezier(.2,.8,.2,1) both; }
+  .animated-score--down .animated-score__old { animation: score-old-down 400ms ease-out both; }
+  .animated-score--down .animated-score__new { animation: score-new-down 400ms cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes score-old-up { to { opacity: 0; transform: translateY(-6px) scale(.94); } }
+  @keyframes score-new-up { from { opacity: 0; transform: translateY(6px) scale(.88); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes score-old-down { to { opacity: 0; transform: translateY(6px) scale(.94); } }
+  @keyframes score-new-down { from { opacity: 0; transform: translateY(-6px) scale(.88); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes score-green-glow { 35% { color: rgb(5 150 105); text-shadow: 0 0 10px rgb(16 185 129 / .7); box-shadow: 0 0 0 5px rgb(16 185 129 / .1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .animated-score--changing, .animated-score--changing .animated-score__new { animation: none; }
+    .animated-score--changing .animated-score__old { display: none; animation: none; }
+  }
+
   @media (max-width: 640px) {
     .fixture-rounds { @apply flex-col gap-6; }
     .fixture-round { @apply w-full min-w-0; }

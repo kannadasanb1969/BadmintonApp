@@ -105,5 +105,7 @@ assert.match(setupSource, /text === 'Team not found'/); assert.match(setupSource
 const hooksSource = await readFile('src/features/friendly/hooks/friendlyHooks.ts', 'utf8')
 assert.match(hooksSource, /cancelQueries\(\{ queryKey: friendlyKeys\.teams\(id\) \}\)/); assert.match(hooksSource, /onMutate: async teamId/); assert.match(hooksSource, /onError: .*rollbackFriendlyTeams/)
 assert.match(hooksSource, /onMutate: async playerIds => optimisticallyAddFriendlyTeam/); assert.match(hooksSource, /replaceOptimisticFriendlyTeam/); assert.match(hooksSource, /useShuffleFriendlyPartners[\s\S]*cancelQueries\(\{ queryKey: friendlyKeys\.teams\(id\) \}\)/)
+assert.match(hooksSource, /void refreshFriendlyTeams\(client, id\)/); assert.doesNotMatch(hooksSource, /await refreshFriendlyTeams\(client, id\)/); assert.match(hooksSource, /friendlyKeys\.teams\(id\), exact: true/)
+assert.match(setupSource, /setFirst\(''\); setSecond\(''\)[\s\S]*create\.mutateAsync\(selected\)/); assert.match(setupSource, /remove\.isPending && remove\.variables === team\.id/)
 assert.doesNotMatch(`${setupSource}\n${hooksSource}`, /window\.location\.reload|location\.reload|navigate\(0\)/)
 console.log('PASS: Friendly doubles paired/unpaired badges, dropdown/defensive guards, fixture lock, exact mutations and authoritative refetch keys')
