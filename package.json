@@ -10,7 +10,7 @@
     "mock-api": "node mock-server/server.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "node tests/auth-session.mjs && node tests/match-lifecycle-ui.mjs && node tests/match-realtime.mjs && node tests/smashpoint-requirements.mjs && node tests/tournament-card-results.mjs"
+    "test": "node tests/auth-session.mjs && node tests/animated-score.mjs && node tests/friendly-batch1.mjs && node tests/friendly-batch2.mjs && node tests/friendly-batch3.mjs && node tests/friendly-batch4.mjs && node tests/friendly-batch5.mjs && node tests/friendly-batch6.mjs && node tests/friendly-batch7.mjs && node tests/friendly-batch8.mjs && node tests/match-lifecycle-ui.mjs && node tests/match-realtime.mjs && node tests/smashpoint-requirements.mjs && node tests/tournament-card-results.mjs"
   },
   "keywords": [],
   "author": "",

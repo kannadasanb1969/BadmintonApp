@@ -1,4 +1,7 @@
-import FriendlyMatchesPage from '@/features/player/pages/FriendlyMatchesPage'
+import { FriendlyHomePage } from '@/features/friendly/pages/FriendlyHomePage'
+import { FriendlyCreatePage } from '@/features/friendly/pages/FriendlyCreatePage'
+import { FriendlyBrowsePage } from '@/features/friendly/pages/FriendlyBrowsePage'
+import { FriendlyDetailsPage } from '@/features/friendly/pages/FriendlyDetailsPage'
 import { createBrowserRouter } from 'react-router-dom'
 import HomePage from '@/pages/public/HomePage'
 import LoginPage from '@/pages/public/LoginPage'
@@ -130,7 +133,10 @@ const router = createBrowserRouter([
         ),
       },
       { path: 'entries', element: <PlayerRegistrationsPage /> },
-      { path: 'friendly-matches', element: <FriendlyMatchesPage /> },
+      { path: 'friendly-matches', element: <FriendlyHomePage /> },
+      { path: 'friendly-matches/create', element: <FriendlyCreatePage /> },
+      { path: 'friendly-matches/browse', element: <FriendlyBrowsePage /> },
+      { path: 'friendly-matches/:id', element: <FriendlyDetailsPage /> },
       { path: 'fixtures', element: <PlayerFixturesPage /> },
       {
         path: 'players',

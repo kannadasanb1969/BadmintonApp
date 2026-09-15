@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
@@ -10,6 +11,7 @@ import Page from '../src/features/player/pages/PlayerTournamentListPage'
 import { completedCategoryResults, isTournamentCompleted, TournamentCardResults } from '../src/features/player/components/TournamentCardResults'
 import { filterPlayerTournaments, tournamentListStatus } from '../src/features/player/utils/tournamentListFilters'
 import TournamentListItem from '../src/features/tournaments/components/TournamentListItem'
+import { fixtureForTournamentCategory, playerFixtureUrl } from '../src/features/player/utils/playerFixtureNavigation'
 
 const category = { id: 'c', name: 'Singles', eventType: 'SINGLES', registrationPhase: 'CLOSED' }
 const tournament = { id: 't', name: 'Completed Singles', status: 'PUBLISHED', createdAt: '2026-09-12', categories: [category], tournamentDate: '2026-09-30', registrationCloseDate: '2099-09-28', registrationCloseTime: '18:00', venueName: 'SmashPoint Court', registeredPlayerCount: 4 }
@@ -34,6 +36,27 @@ apiClient.get = async (path) => {
   return { data }
 }
 let results
+
+const fixtureA = { id: 'fixture-a', tournamentId: 'tournament-a', categoryId: 'same-name', status: 'PUBLISHED' }
+const fixtureB = { id: 'fixture-b', tournamentId: 'tournament-b', categoryId: 'same-name', status: 'PUBLISHED' }
+const draftFixture = { id: 'fixture-draft', tournamentId: 'tournament-a', categoryId: 'doubles', status: 'DRAFT' }
+assert.equal(fixtureForTournamentCategory([fixtureA, fixtureB, draftFixture] as never[], 'tournament-a', 'same-name')?.id, 'fixture-a')
+assert.equal(fixtureForTournamentCategory([fixtureA, fixtureB, draftFixture] as never[], 'tournament-b', 'same-name')?.id, 'fixture-b')
+assert.equal(fixtureForTournamentCategory([fixtureA, fixtureB, draftFixture] as never[], 'tournament-a', 'missing'), undefined)
+assert.equal(fixtureForTournamentCategory([fixtureA, fixtureB, draftFixture] as never[], 'tournament-a', 'doubles')?.status, 'DRAFT')
+assert.equal(playerFixtureUrl(fixtureA as never), '/player/fixtures?fixtureId=fixture-a&tournamentId=tournament-a&categoryId=same-name')
+const detailSource = await readFile('src/features/player/pages/PlayerTournamentDetailPage.tsx', 'utf8')
+const fixturesSource = await readFile('src/features/player/pages/PlayerFixturesPage.tsx', 'utf8')
+assert.match(detailSource, /fixtureService\.getFixtures\(\)/)
+assert.match(detailSource, /fixture\.status !== 'PUBLISHED'/)
+assert.match(detailSource, /Fixture is not available yet\./)
+assert.match(detailSource, /Fixture will be available once the organizer publishes the draw\./)
+assert.match(detailSource, /navigate\(playerFixtureUrl\(fixture\)\)/)
+assert.match(detailSource, /View Fixtures →/)
+assert.match(detailSource, /Opening fixture\.\.\./)
+assert.doesNotMatch(detailSource, /Checking fixtures?\.\.\.|View My Entry/)
+assert.match(detailSource, /fixturesRequest\.current/)
+assert.match(fixturesSource, /requestedFixtureId/)
 try {
   ;[results] = await Promise.all([resultService.getResults(), resultService.getResults()])
   assert.equal(count, 5, 'concurrent calls share one bulk load')
@@ -66,11 +89,20 @@ Object.assign(useTournamentStore.getInitialState(), useTournamentStore.getState(
 Object.assign(useResultStore.getInitialState(), useResultStore.getState())
 const html = renderToStaticMarkup(<MemoryRouter><Page /></MemoryRouter>)
 const cards = html.match(/<article[\s\S]*?<\/article>/g)
-assert.match(cards[0], /bg-emerald-50[^>]*>OPEN NOW/)
+assert.match(cards[0], /tournament-status-badge-open[^>]*>OPEN REGISTRATION/)
 assert.doesNotMatch(cards[0], /🏆 Winner/)
 assert.equal(cards.length, 1)
 assert.doesNotMatch(html, /type="checkbox"/)
 assert.match(html, /value="OPEN" selected=""/)
+for (const label of ['Open registration', 'Registration closed', 'Completed', 'My registrations', 'All tournaments']) assert.match(html, new RegExp(`>${label}<`))
+const registrationsHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/player/tournaments?view=registrations']}><Page /></MemoryRouter>)
+assert.match(registrationsHTML, /My registrations/)
+const allStatusesHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/player/tournaments?view=all']}><Page /></MemoryRouter>)
+assert.match(allStatusesHTML, /tournament-status-badge-open[^>]*>OPEN REGISTRATION/)
+assert.match(allStatusesHTML, /tournament-status-badge-closed[^>]*>REGISTRATION CLOSED/)
+assert.match(allStatusesHTML, /tournament-status-badge-completed[^>]*>COMPLETED/)
+assert.match(allStatusesHTML, /tournament-event-badge[^>]*>Singles/)
+assert.match(allStatusesHTML, /🏆 Winner/); assert.match(allStatusesHTML, /🥈 Runner-up/)
 const now = new Date('2026-09-12T00:00:00Z')
 const tournaments = [open, closed, tournament, doubles]
 for (const [status, ids] of [['OPEN', ['o']], ['CLOSED', ['closed']], ['COMPLETED', ['t', 'd']], ['ALL', ['o', 'closed', 't', 'd']]]) {
