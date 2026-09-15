@@ -85,7 +85,13 @@ const PlayerTournamentListPage = () => {
       <section className="tournament-reference-filters rounded-2xl border p-4 shadow-sm sm:p-5">
         <label className="tournament-search-field"><span aria-hidden="true">⌕</span><input aria-label="Search tournaments" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by tournament or venue" /></label>
         <select aria-label="Event type" value={eventType} onChange={(event) => setEventType(event.target.value as typeof eventType)}><option value="ALL">All events</option><option value="SINGLES">Singles</option><option value="DOUBLES">Doubles</option></select>
-        <label className="tournament-open-filter"><input type="checkbox" checked={status === 'OPEN'} onChange={(event) => setStatus(event.target.checked ? 'OPEN' : 'ALL')} /><span>Open registration only</span></label>
+        <select aria-label="Tournament status" value={status} onChange={event => setStatus(event.target.value as TournamentView)}>
+          <option value="OPEN">Open registration</option>
+          <option value="CLOSED">Registration closed</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="MY_REGISTRATIONS">My registrations</option>
+          <option value="ALL">All tournaments</option>
+        </select>
       </section>
       {isMyRegistrations ? <PlayerRegistrationsView query={query} eventType={eventType} /> : <>
       <div className="flex items-center justify-between"><h2 className="text-2xl font-black text-white">{publishedTournaments.length} events found</h2><span className="text-sm text-slate-400">Select an event to register</span></div>

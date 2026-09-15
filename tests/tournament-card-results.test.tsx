@@ -66,11 +66,14 @@ Object.assign(useTournamentStore.getInitialState(), useTournamentStore.getState(
 Object.assign(useResultStore.getInitialState(), useResultStore.getState())
 const html = renderToStaticMarkup(<MemoryRouter><Page /></MemoryRouter>)
 const cards = html.match(/<article[\s\S]*?<\/article>/g)
-assert.match(cards[0], /bg-emerald-50[^>]*>OPEN NOW/)
+assert.match(cards[0], /tournament-open-badge[^>]*>OPEN NOW/)
 assert.doesNotMatch(cards[0], /🏆 Winner/)
 assert.equal(cards.length, 1)
 assert.doesNotMatch(html, /type="checkbox"/)
 assert.match(html, /value="OPEN" selected=""/)
+for (const label of ['Open registration', 'Registration closed', 'Completed', 'My registrations', 'All tournaments']) assert.match(html, new RegExp(`>${label}<`))
+const registrationsHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/player/tournaments?view=registrations']}><Page /></MemoryRouter>)
+assert.match(registrationsHTML, /My registrations/)
 const now = new Date('2026-09-12T00:00:00Z')
 const tournaments = [open, closed, tournament, doubles]
 for (const [status, ids] of [['OPEN', ['o']], ['CLOSED', ['closed']], ['COMPLETED', ['t', 'd']], ['ALL', ['o', 'closed', 't', 'd']]]) {
