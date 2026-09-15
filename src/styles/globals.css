@@ -388,7 +388,10 @@
   .tournament-open-filter input { @apply h-7 w-7 appearance-none rounded-md border-0 bg-slate-200 checked:bg-lime-300; }
   .tournament-open-filter input:checked::after { content: '✓'; display: block; color: #07170f; font-size: 1.15rem; font-weight: 900; line-height: 1.75rem; text-align: center; }
   .tournament-reference-card { @apply min-h-48 border-emerald-300/55 bg-cover bg-center text-slate-100; }
-  .tournament-open-badge { @apply rounded-full bg-emerald-300 px-4 py-1.5 text-xs font-black text-slate-950; }
+  .tournament-status-badge { @apply inline-flex max-w-full items-center rounded-full border px-4 py-1.5 text-xs font-black; }
+  .tournament-status-badge-open { border-color: #10b981; background: rgb(16 185 129 / .15); color: #6ee7b7; }
+  .tournament-status-badge-closed { border-color: #f59e0b; background: rgb(245 158 11 / .15); color: #fcd34d; }
+  .tournament-status-badge-completed { border-color: #3b82f6; background: rgb(59 130 246 / .15); color: #93c5fd; }
   .tournament-event-badge { @apply rounded-full border border-sky-300/50 bg-sky-950/70 px-4 py-1.5 text-xs font-semibold text-sky-100; }
   .tournament-info-badge { @apply rounded-full border border-emerald-300/60 bg-emerald-950/70 px-3 py-1.5 text-xs font-bold text-emerald-200; }
   .tournament-team-badge { @apply rounded-full border border-blue-400/60 bg-blue-950/70 px-3 py-1.5 text-xs font-bold text-blue-200; }

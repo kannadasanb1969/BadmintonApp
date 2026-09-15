@@ -13,6 +13,12 @@ import tournamentCardCourt from '@/assets/ref1.png'
 import tournamentCardPlayer from '@/assets/ref2.png'
 import tournamentCardShuttle from '@/assets/ref3.png'
 
+const tournamentStatusBadgeClass: Record<Exclude<TournamentListStatus, 'ALL'>, string> = {
+  OPEN: 'tournament-status-badge tournament-status-badge-open',
+  CLOSED: 'tournament-status-badge tournament-status-badge-closed',
+  COMPLETED: 'tournament-status-badge tournament-status-badge-completed',
+}
+
 const PlayerTournamentListPage = () => {
   const { tournaments, loading, error } = useTournamentStore()
   const navigate = useNavigate()
@@ -63,7 +69,6 @@ const PlayerTournamentListPage = () => {
 
   const publishedTournaments = useMemo(() => filterPlayerTournaments(tournaments, results, query, eventType, isMyRegistrations ? 'ALL' : status),
     [tournaments, results, query, eventType, status])
-  const statusColor = { OPEN: 'bg-emerald-50 text-emerald-700', CLOSED: 'bg-rose-50 text-rose-700', COMPLETED: 'bg-blue-50 text-blue-700', ALL: 'bg-slate-50 text-slate-700', MY_REGISTRATIONS: 'bg-emerald-50 text-emerald-700' }
   const emptyMessage = { OPEN: 'No open registration tournaments found.', CLOSED: 'No registration-closed tournaments found.', COMPLETED: 'No completed tournaments found.', ALL: 'No matching tournaments found.', MY_REGISTRATIONS: 'No matching registrations found.' }
 
   if (loading && !isMyRegistrations) {
@@ -102,12 +107,12 @@ const PlayerTournamentListPage = () => {
           const cardStatus = tournamentListStatus(tournament, results)
           const completed = cardStatus === 'COMPLETED'
           const open = cardStatus === 'OPEN'
-          const badge = statusColor[cardStatus]
+          const badge = tournamentStatusBadgeClass[cardStatus]
           return (
           <article key={tournament.id} className="tournament-reference-card rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-lime-300 hover:shadow-lg" style={{ backgroundImage: `linear-gradient(90deg, rgb(2 18 22 / .96), rgb(2 18 22 / .62)), url(${[tournamentCardPlayer, tournamentCardCourt, tournamentCardShuttle][index % 3]})` }}>
             <div className="flex min-w-0 flex-col gap-4">
               <div className="min-w-0">
-                <div className="mb-3 flex flex-wrap gap-2"><span className="tournament-open-badge">{completed ? 'COMPLETED' : open ? 'OPEN NOW' : 'REGISTRATION CLOSED'}</span>{tournament.categories.map(category => <span key={category.id} className="tournament-event-badge">{category.eventType === 'SINGLES' ? 'Singles' : 'Doubles'}</span>)}</div>
+                <div className="mb-3 flex flex-wrap gap-2"><span className={badge}>{completed ? 'COMPLETED' : open ? 'OPEN REGISTRATION' : 'REGISTRATION CLOSED'}</span>{tournament.categories.map(category => <span key={category.id} className="tournament-event-badge">{category.eventType === 'SINGLES' ? 'Singles' : 'Doubles'}</span>)}</div>
                 <h2 className="text-xl font-bold text-white">{tournament.name}</h2>
                 <p className="mt-2 text-sm text-slate-300">📍 {tournament.venueName} · {formatDateDisplay(tournament.tournamentDate)}</p>
                 {completed && <TournamentCardResults tournament={tournament} results={results} />}
