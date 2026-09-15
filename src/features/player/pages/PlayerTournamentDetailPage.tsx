@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
@@ -62,6 +62,12 @@ const PlayerTournamentDetailPage = () => {
 
   const [fixtures, setFixtures] = useState<Map<string, Fixture>>(new Map())
   const [fixtureNotice, setFixtureNotice] = useState<Record<string, string>>({})
+  const [openingFixtureCategoryId, setOpeningFixtureCategoryId] = useState<string | null>(null)
+  const fixturesRequest = useRef<Promise<Fixture[]> | null>(null)
+  const loadPlayerFixtures = () => {
+    if (!fixturesRequest.current) fixturesRequest.current = fixtureService.getFixtures().finally(() => { fixturesRequest.current = null })
+    return fixturesRequest.current
+  }
   const [fixtureLoading, setFixtureLoading] = useState<boolean>(false)
   const [fixtureError, setFixtureError] = useState<string | null>(null)
 
@@ -219,7 +225,7 @@ const PlayerTournamentDetailPage = () => {
       setFixtureError(null)
 
       try {
-        const loadedFixtures = await fixtureService.getFixtures()
+        const loadedFixtures = await loadPlayerFixtures()
         const fixtureMap = new Map<string, Fixture>()
 
         for (const category of tournament.categories ?? []) {
@@ -255,16 +261,26 @@ const PlayerTournamentDetailPage = () => {
     }
   }, [tournamentId, tournament])
 
-  const viewRegisteredFixture = (categoryId: string, fixture?: Fixture) => {
-    if (!fixture) {
+  const viewRegisteredFixture = async (categoryId: string, cachedFixture?: Fixture) => {
+    if (openingFixtureCategoryId) return
+    setOpeningFixtureCategoryId(categoryId)
+    setFixtureNotice(previous => ({ ...previous, [categoryId]: '' }))
+    try {
+      const fixture = cachedFixture ?? fixtureForTournamentCategory(await loadPlayerFixtures(), tournamentId ?? '', categoryId)
+      if (!fixture) {
+        setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture is not available yet.' }))
+        return
+      }
+      if (fixture.status !== 'PUBLISHED') {
+        setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture will be available once the organizer publishes the draw.' }))
+        return
+      }
+      navigate(playerFixtureUrl(fixture))
+    } catch {
       setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture is not available yet.' }))
-      return
+    } finally {
+      setOpeningFixtureCategoryId(null)
     }
-    if (fixture.status !== 'PUBLISHED') {
-      setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture will be available once the organizer publishes the draw.' }))
-      return
-    }
-    navigate(playerFixtureUrl(fixture))
   }
 
   const canScoreMatchPlayer = (match: FixtureMatch): boolean => {
@@ -819,7 +835,7 @@ const PlayerTournamentDetailPage = () => {
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                         <p className="player-registered">✓ Already Registered</p>
                         <p className="text-sm text-emerald-800">You are already participating in this category.</p>
-                        <button type="button" disabled={fixtureLoading} onClick={() => viewRegisteredFixture(category.id, fixture)} className="mt-3 text-sm font-bold text-emerald-700 hover:text-emerald-900 disabled:text-slate-400">{fixtureLoading ? 'Checking fixture...' : 'View My Entry'}</button>
+                        <button type="button" disabled={openingFixtureCategoryId !== null} onClick={() => void viewRegisteredFixture(category.id, fixture)} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 disabled:text-slate-400">{openingFixtureCategoryId === category.id ? 'Opening fixture...' : 'View Fixtures →'}</button>
                         {fixtureNotice[category.id] && <p role="status" className="mt-2 text-sm font-semibold text-amber-700">{fixtureNotice[category.id]}</p>}
                       </div>
                     ) : loadingRegistrations ? (
