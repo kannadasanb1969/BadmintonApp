@@ -12,12 +12,27 @@ import { registrationService } from '@/features/registrations/services/registrat
 import { teamService } from '@/features/teams/services/teamService'
 import { tournamentService } from '@/features/tournaments/services/tournamentService'
 import { useMatchLiveUpdates } from '@/features/matches/hooks/useMatchLiveUpdates'
+import { AnimatedScore } from '@/features/matches/components/AnimatedScore'
+import type { FixtureMatch } from '@/features/fixtures/types/fixture.types'
+
+const PlayerFixtureMatchCard = ({ match }: { match: FixtureMatch }) => {
+  const live = match.status === 'LIVE'
+  const scoringRuleVisible = (live || match.status === 'COMPLETED') && (match.winningPoints === 15 || match.winningPoints === 21 || match.winningPoints === 30)
+  return <article className={`fixture-match-card rounded-2xl border p-4 ${live ? 'fixture-match-card-live' : ''}`}>
+    {live ? <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs font-black uppercase tracking-[.14em]"><span className="flex items-center gap-2 text-emerald-300"><i className="live-score-dot" aria-hidden="true" />Live match{scoringRuleVisible && <small className="font-bold normal-case tracking-normal text-blue-200">· Playing to {match.winningPoints} · Win by 2</small>}</span><span className="flex items-center gap-2 text-emerald-300"><i className="live-score-dot" aria-hidden="true" />LIVE</span></div> : <p className="mb-3 text-xs font-bold text-slate-400">{match.matchCode} · {match.status}</p>}
+    {!live && scoringRuleVisible && <p className="mb-3 text-xs font-bold text-blue-700">Playing to {match.winningPoints} · Win by 2</p>}
+    <div className={live ? 'live-score-row' : 'flex justify-between gap-3 border-b border-slate-100 pb-2'}><span className="min-w-0 truncate font-semibold">{match.participant1?.name ?? 'TBD'}</span><strong><AnimatedScore value={match.participant1Score} active={live} /></strong></div>
+    <div className={live ? 'live-score-row mt-2' : 'flex justify-between gap-3 pt-2'}><span className="min-w-0 truncate font-semibold">{match.participant2?.name ?? 'TBD'}</span><strong><AnimatedScore value={match.participant2Score} active={live} /></strong></div>
+    {match.status === 'COMPLETED' && <div className="mt-3 border-t border-slate-100 pt-3 text-sm font-semibold text-emerald-700"><span>🏆 Winner: {match.winnerParticipantName || 'Winner confirmed'}</span>{match.winnerParticipantName && match.winnerParticipantCode && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(match.winnerParticipantCode) && <span className="ml-2 text-xs font-normal text-slate-500">{match.winnerParticipantCode}</span>}</div>}
+  </article>
+}
 
 const PlayerFixturesPage = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const requestedTournamentId = searchParams.get('tournamentId')
   const requestedCategoryId = searchParams.get('categoryId')
+  const requestedFixtureId = searchParams.get('fixtureId')
   const storedProfile = usePlayerProfileStore(state => state.profile)
   const user = useAuthStore(state => state.user)
   const directoryProfile = usePlayerDirectoryStore(state => user ? state.getProfileByMobileExact(user.mobile) : undefined)
@@ -62,10 +77,11 @@ const PlayerFixturesPage = () => {
     const playerRegistrations = registrations.filter(registration => registration.playerId === profile.id && registration.status === 'REGISTERED')
     const playerTeams = teams.filter(team => team.status === 'CONFIRMED' && (team.player1Id === profile.id || team.player2Id === profile.id))
     return fixtures.filter(fixture => fixture.status === 'PUBLISHED' &&
+      (!requestedFixtureId || fixture.id === requestedFixtureId) &&
       (!requestedTournamentId || fixture.tournamentId === requestedTournamentId) &&
       (!requestedCategoryId || fixture.categoryId === requestedCategoryId) &&
       (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
-  }, [fixtures, profile, registrations, requestedCategoryId, requestedTournamentId, teams])
+  }, [fixtures, profile, registrations, requestedCategoryId, requestedFixtureId, requestedTournamentId, teams])
 
   const realtimeMatchIds = useMemo(
     () => playerFixtures.flatMap(fixture => fixture.matches
@@ -99,7 +115,7 @@ const PlayerFixturesPage = () => {
 
   if (!profile) return <div className="rounded-2xl bg-white p-8 text-center shadow-sm"><p className="text-lg font-bold">Complete your profile to view fixtures.</p><button onClick={() => navigate('/player/profile')} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white">Complete profile</button></div>
 
-  return <div className="space-y-6">
+  return <div className="player-tournament-page -mx-0 space-y-6 px-4 py-5 sm:px-6 sm:py-8">
     <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 to-emerald-900 p-6 text-white sm:p-8"><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">My match centre</p><h1 className="mt-2 text-3xl font-black">Fixtures & results</h1><p className="mt-2 text-sm text-slate-300">Follow your team’s draw, match status, and scores.</p></section>
     {isLoadingFixtures ? <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center"><p className="text-lg font-bold text-slate-800">Loading your fixtures…</p></div> : fixtureLoadError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-700"><p className="font-bold">Unable to load fixtures</p><p className="mt-1 text-sm">{fixtureLoadError}</p></div> : playerFixtures.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><p className="text-lg font-bold text-slate-800">No fixtures available yet</p><p className="mt-2 text-sm text-slate-500">Fixtures appear here after your tournament registration closes and the organizer publishes the draw.</p><button onClick={() => navigate('/player/registrations')} className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">View my registrations</button></div> : playerFixtures.map(fixture => {
       const tournament = tournaments.find(item => item.id === fixture.tournamentId)
@@ -108,7 +124,7 @@ const PlayerFixturesPage = () => {
       const final = validMatches.filter(match => match.roundNumber === Math.max(...rounds)).find(match => match.status === 'COMPLETED' && match.winnerId)
       const winner = final ? (final.participant1?.id === final.winnerId ? final.participant1 : final.participant2) : undefined
       const runnerUp = final ? (final.participant1?.id === final.winnerId ? final.participant2 : final.participant1) : undefined
-      return <section key={fixture.id} className="fixture-arena p-5 sm:p-8"><div className="fixture-hero"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-blue-300">{tournament?.name ?? fixture.tournamentCode}</p><h2 className="mt-2 text-3xl font-black">{fixture.categoryName} Fixture</h2><p className="mt-2 text-blue-200">{fixture.status === 'PUBLISHED' ? 'Live draw published' : 'Draft fixture'}</p></div><span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-200">{fixture.participants.length} Teams</span></div>{winner && runnerUp && <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5"><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">🏆 Winner</p><p className="mt-2 text-xl font-black text-white">{winner.name}</p></div><div className="rounded-2xl border border-slate-300/30 bg-white/10 p-5"><p className="text-xs font-bold uppercase tracking-[.18em] text-slate-300">🥈 Runner-up</p><p className="mt-2 text-xl font-black text-white">{runnerUp.name}</p></div></div>}<div className="mt-7 overflow-x-auto"><div className="fixture-rounds">{rounds.map(round => { const matches = validMatches.filter(match => match.roundNumber === round); return <div key={round} className="fixture-round"><h3>🏆 {matches[0]?.roundName ?? `Round ${round + 1}`}</h3><div className="space-y-4">{matches.map(match => <article key={match.id} className="fixture-match-card rounded-2xl border p-4"><p className="mb-3 text-xs font-bold text-slate-400">{match.matchCode} · {match.status}</p>{(match.status === 'LIVE' || match.status === 'COMPLETED') && (match.winningPoints === 15 || match.winningPoints === 21 || match.winningPoints === 30) && <p className="mb-3 text-xs font-bold text-blue-700">Playing to {match.winningPoints} · Win by 2</p>}<div className="flex justify-between gap-3 border-b border-slate-100 pb-2"><span className="font-semibold">{match.participant1?.name ?? 'TBD'}</span><strong>{match.participant1Score}</strong></div><div className="flex justify-between gap-3 pt-2"><span className="font-semibold">{match.participant2?.name ?? 'TBD'}</span><strong>{match.participant2Score}</strong></div>{match.status === 'COMPLETED' && <div className="mt-3 border-t border-slate-100 pt-3 text-sm font-semibold text-emerald-700"><span>🏆 Winner: {match.winnerParticipantName || 'Winner confirmed'}</span>{match.winnerParticipantName && match.winnerParticipantCode && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(match.winnerParticipantCode) && <span className="ml-2 text-xs font-normal text-slate-500">{match.winnerParticipantCode}</span>}</div>}</article>)}</div></div> })}</div></div></section>
+      return <section key={fixture.id} className="fixture-arena p-5 sm:p-8"><div className="fixture-hero"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-blue-300">{tournament?.name ?? fixture.tournamentCode}</p><h2 className="mt-2 text-3xl font-black">{fixture.categoryName} Fixture</h2><p className="mt-2 text-blue-200">{fixture.status === 'PUBLISHED' ? 'Live draw published' : 'Draft fixture'}</p></div><span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-200">{fixture.participants.length} Teams</span></div>{winner && runnerUp && <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5"><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">🏆 Winner</p><p className="mt-2 text-xl font-black text-white">{winner.name}</p></div><div className="rounded-2xl border border-slate-300/30 bg-white/10 p-5"><p className="text-xs font-bold uppercase tracking-[.18em] text-slate-300">🥈 Runner-up</p><p className="mt-2 text-xl font-black text-white">{runnerUp.name}</p></div></div>}<div className="mt-7 overflow-x-auto"><div className="fixture-rounds">{rounds.map(round => { const matches = validMatches.filter(match => match.roundNumber === round); return <div key={round} className="fixture-round"><h3>🏆 {matches[0]?.roundName ?? `Round ${round + 1}`}</h3><div className="space-y-4">{matches.map(match => <PlayerFixtureMatchCard key={match.id} match={match} />)}</div></div> })}</div></div></section>
     })}
   </div>
 }

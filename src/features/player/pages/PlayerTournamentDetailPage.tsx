@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
-import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
 import { registrationService } from '@/features/registrations/services/registrationService'
+import { fixtureService } from '@/features/fixtures/services/fixtureService'
+import { fixtureForTournamentCategory, playerFixtureUrl } from '@/features/player/utils/playerFixtureNavigation'
 
 import { evaluatePlayerEligibility } from '@/features/eligibility/utils/eligibilityUtils'
 import { EligibilityResult } from '@/features/eligibility/types/eligibility.types'
@@ -60,6 +61,13 @@ const PlayerTournamentDetailPage = () => {
   >({})
 
   const [fixtures, setFixtures] = useState<Map<string, Fixture>>(new Map())
+  const [fixtureNotice, setFixtureNotice] = useState<Record<string, string>>({})
+  const [openingFixtureCategoryId, setOpeningFixtureCategoryId] = useState<string | null>(null)
+  const fixturesRequest = useRef<Promise<Fixture[]> | null>(null)
+  const loadPlayerFixtures = () => {
+    if (!fixturesRequest.current) fixturesRequest.current = fixtureService.getFixtures().finally(() => { fixturesRequest.current = null })
+    return fixturesRequest.current
+  }
   const [fixtureLoading, setFixtureLoading] = useState<boolean>(false)
   const [fixtureError, setFixtureError] = useState<string | null>(null)
 
@@ -217,15 +225,11 @@ const PlayerTournamentDetailPage = () => {
       setFixtureError(null)
 
       try {
-        const fixtureStore = useFixtureStore.getState()
+        const loadedFixtures = await loadPlayerFixtures()
         const fixtureMap = new Map<string, Fixture>()
 
         for (const category of tournament.categories ?? []) {
-          const fixture =
-            fixtureStore.getFixtureByTournamentCategory(
-              tournamentId,
-              category.id
-            )
+          const fixture = fixtureForTournamentCategory(loadedFixtures, tournamentId, category.id)
 
           if (fixture) {
             fixtureMap.set(category.id, fixture)
@@ -256,6 +260,28 @@ const PlayerTournamentDetailPage = () => {
       isCancelled = true
     }
   }, [tournamentId, tournament])
+
+  const viewRegisteredFixture = async (categoryId: string, cachedFixture?: Fixture) => {
+    if (openingFixtureCategoryId) return
+    setOpeningFixtureCategoryId(categoryId)
+    setFixtureNotice(previous => ({ ...previous, [categoryId]: '' }))
+    try {
+      const fixture = cachedFixture ?? fixtureForTournamentCategory(await loadPlayerFixtures(), tournamentId ?? '', categoryId)
+      if (!fixture) {
+        setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture is not available yet.' }))
+        return
+      }
+      if (fixture.status !== 'PUBLISHED') {
+        setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture will be available once the organizer publishes the draw.' }))
+        return
+      }
+      navigate(playerFixtureUrl(fixture))
+    } catch {
+      setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture is not available yet.' }))
+    } finally {
+      setOpeningFixtureCategoryId(null)
+    }
+  }
 
   const canScoreMatchPlayer = (match: FixtureMatch): boolean => {
     return match.status === 'LIVE' || match.status === 'COMPLETED'
@@ -472,26 +498,13 @@ const PlayerTournamentDetailPage = () => {
 
         <p><strong>Entry code</strong><span>{tournament.tournamentCode}</span></p>
 
-        <p><strong>Match date</strong><span>{formatDateDisplay(tournament.tournamentDate)}</span></p>
-
-        <p><strong>Report by</strong><span>{formatTimeDisplay(tournament.reportingTime)}</span></p>
-
-        <p><strong>Registration closes</strong><span>
-          {formatDateDisplay(
-            tournament.registrationCloseDate
-          )}{' '}
-          at{' '}
-          {formatTimeDisplay(
-            tournament.registrationCloseTime
-          )}</span></p>
-
-        <p><strong>Venue</strong><span>{tournament.venueName}</span></p>
-
-        <p><strong>Address</strong><span>{tournament.venueAddress}</span></p>
-
         <p><strong>Draw format</strong><span>{tournament.format}</span></p>
 
+        <p><strong>Match date</strong><span>{formatDateDisplay(tournament.tournamentDate)}</span></p>
+
         <p><strong>Entry status</strong><span className="player-published">● {tournament.status}</span></p>
+
+        <p><strong>Report by</strong><span>{formatTimeDisplay(tournament.reportingTime)}</span></p>
 
         {tournament.mapLink && (
           <p><strong>Venue map</strong>
@@ -506,6 +519,15 @@ const PlayerTournamentDetailPage = () => {
           </p>
         )}
 
+        <p><strong>Registration closes</strong><span>
+          {formatDateDisplay(
+            tournament.registrationCloseDate
+          )}{' '}
+          at{' '}
+          {formatTimeDisplay(
+            tournament.registrationCloseTime
+          )}</span></p>
+
         {tournament.description && (
           <p className="player-info-wide"><strong>About this tournament</strong><span>{tournament.description}</span></p>
         )}
@@ -514,9 +536,13 @@ const PlayerTournamentDetailPage = () => {
           <p><strong>Prize pool</strong><span>{tournament.prizes}</span></p>
         )}
 
+        <p><strong>Venue</strong><span>{tournament.venueName}</span></p>
+
         {tournament.shuttle && (
           <p><strong>Shuttle</strong><span>{tournament.shuttle}</span></p>
         )}
+
+        <p><strong>Address</strong><span>{tournament.venueAddress}</span></p>
 
         {tournament.scoringFormat && (
           <p><strong>Scoring</strong><span>{tournament.scoringFormat}</span></p>
@@ -809,7 +835,8 @@ const PlayerTournamentDetailPage = () => {
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                         <p className="player-registered">✓ Already Registered</p>
                         <p className="text-sm text-emerald-800">You are already participating in this category.</p>
-                        <button type="button" onClick={() => navigate('/player/registrations')} className="mt-3 text-sm font-bold text-emerald-700 hover:text-emerald-900">View My Entry</button>
+                        <button type="button" disabled={openingFixtureCategoryId !== null} onClick={() => void viewRegisteredFixture(category.id, fixture)} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 disabled:text-slate-400">{openingFixtureCategoryId === category.id ? 'Opening fixture...' : 'View Fixtures →'}</button>
+                        {fixtureNotice[category.id] && <p role="status" className="mt-2 text-sm font-semibold text-amber-700">{fixtureNotice[category.id]}</p>}
                       </div>
                     ) : loadingRegistrations ? (
                       <p className="text-sm text-gray-500">Checking your registration...</p>

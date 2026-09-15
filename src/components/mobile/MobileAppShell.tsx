@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import smashPointLogo from '@/assets/mlogo.png'
 
 export type AppIconName = 'home' | 'trophy' | 'clipboard' | 'bracket' | 'bell' | 'user' | 'menu' | 'plus'
 
@@ -29,8 +30,8 @@ export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unrea
     <div className="mobile-app-header-inner">
       {showBack && <button type="button" className="mobile-back-button" onClick={goBack} aria-label="Go back"><span aria-hidden="true">‹</span></button>}
       <Link to={homeTo} className="mobile-brand" aria-label={`${brand} home`}>
-        <span className="mobile-brand-mark"><AppIcon name="trophy" className="h-5 w-5" /></span>
-        <span><strong>{brand}</strong><small>{section}</small></span>
+        <img src={smashPointLogo} alt={brand} />
+        <span><small>{section}</small></span>
       </Link>
       <div className="mobile-header-actions">
         <button type="button" className="mobile-logout-button" onClick={onLogout}>Logout</button>
