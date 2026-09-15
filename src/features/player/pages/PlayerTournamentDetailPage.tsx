@@ -4,8 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
-import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
 import { registrationService } from '@/features/registrations/services/registrationService'
+import { fixtureService } from '@/features/fixtures/services/fixtureService'
+import { fixtureForTournamentCategory, playerFixtureUrl } from '@/features/player/utils/playerFixtureNavigation'
 
 import { evaluatePlayerEligibility } from '@/features/eligibility/utils/eligibilityUtils'
 import { EligibilityResult } from '@/features/eligibility/types/eligibility.types'
@@ -60,6 +61,7 @@ const PlayerTournamentDetailPage = () => {
   >({})
 
   const [fixtures, setFixtures] = useState<Map<string, Fixture>>(new Map())
+  const [fixtureNotice, setFixtureNotice] = useState<Record<string, string>>({})
   const [fixtureLoading, setFixtureLoading] = useState<boolean>(false)
   const [fixtureError, setFixtureError] = useState<string | null>(null)
 
@@ -217,15 +219,11 @@ const PlayerTournamentDetailPage = () => {
       setFixtureError(null)
 
       try {
-        const fixtureStore = useFixtureStore.getState()
+        const loadedFixtures = await fixtureService.getFixtures()
         const fixtureMap = new Map<string, Fixture>()
 
         for (const category of tournament.categories ?? []) {
-          const fixture =
-            fixtureStore.getFixtureByTournamentCategory(
-              tournamentId,
-              category.id
-            )
+          const fixture = fixtureForTournamentCategory(loadedFixtures, tournamentId, category.id)
 
           if (fixture) {
             fixtureMap.set(category.id, fixture)
@@ -256,6 +254,18 @@ const PlayerTournamentDetailPage = () => {
       isCancelled = true
     }
   }, [tournamentId, tournament])
+
+  const viewRegisteredFixture = (categoryId: string, fixture?: Fixture) => {
+    if (!fixture) {
+      setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture is not available yet.' }))
+      return
+    }
+    if (fixture.status !== 'PUBLISHED') {
+      setFixtureNotice(previous => ({ ...previous, [categoryId]: 'Fixture will be available once the organizer publishes the draw.' }))
+      return
+    }
+    navigate(playerFixtureUrl(fixture))
+  }
 
   const canScoreMatchPlayer = (match: FixtureMatch): boolean => {
     return match.status === 'LIVE' || match.status === 'COMPLETED'
@@ -809,7 +819,8 @@ const PlayerTournamentDetailPage = () => {
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                         <p className="player-registered">✓ Already Registered</p>
                         <p className="text-sm text-emerald-800">You are already participating in this category.</p>
-                        <button type="button" onClick={() => navigate('/player/registrations')} className="mt-3 text-sm font-bold text-emerald-700 hover:text-emerald-900">View My Entry</button>
+                        <button type="button" disabled={fixtureLoading} onClick={() => viewRegisteredFixture(category.id, fixture)} className="mt-3 text-sm font-bold text-emerald-700 hover:text-emerald-900 disabled:text-slate-400">{fixtureLoading ? 'Checking fixture...' : 'View My Entry'}</button>
+                        {fixtureNotice[category.id] && <p role="status" className="mt-2 text-sm font-semibold text-amber-700">{fixtureNotice[category.id]}</p>}
                       </div>
                     ) : loadingRegistrations ? (
                       <p className="text-sm text-gray-500">Checking your registration...</p>

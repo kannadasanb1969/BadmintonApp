@@ -32,6 +32,7 @@ const PlayerFixturesPage = () => {
   const [searchParams] = useSearchParams()
   const requestedTournamentId = searchParams.get('tournamentId')
   const requestedCategoryId = searchParams.get('categoryId')
+  const requestedFixtureId = searchParams.get('fixtureId')
   const storedProfile = usePlayerProfileStore(state => state.profile)
   const user = useAuthStore(state => state.user)
   const directoryProfile = usePlayerDirectoryStore(state => user ? state.getProfileByMobileExact(user.mobile) : undefined)
@@ -76,10 +77,11 @@ const PlayerFixturesPage = () => {
     const playerRegistrations = registrations.filter(registration => registration.playerId === profile.id && registration.status === 'REGISTERED')
     const playerTeams = teams.filter(team => team.status === 'CONFIRMED' && (team.player1Id === profile.id || team.player2Id === profile.id))
     return fixtures.filter(fixture => fixture.status === 'PUBLISHED' &&
+      (!requestedFixtureId || fixture.id === requestedFixtureId) &&
       (!requestedTournamentId || fixture.tournamentId === requestedTournamentId) &&
       (!requestedCategoryId || fixture.categoryId === requestedCategoryId) &&
       (playerRegistrations.some(registration => registration.tournamentId === fixture.tournamentId && registration.categoryId === fixture.categoryId) || playerTeams.some(team => team.tournamentId === fixture.tournamentId && team.categoryId === fixture.categoryId)))
-  }, [fixtures, profile, registrations, requestedCategoryId, requestedTournamentId, teams])
+  }, [fixtures, profile, registrations, requestedCategoryId, requestedFixtureId, requestedTournamentId, teams])
 
   const realtimeMatchIds = useMemo(
     () => playerFixtures.flatMap(fixture => fixture.matches
