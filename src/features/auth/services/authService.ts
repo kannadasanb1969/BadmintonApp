@@ -2,12 +2,12 @@ import { User, Role } from '@/types/auth.types'
 import { PlayerProfile } from '@/features/player/types/player.types'
 import apiClient, { isExplicitMockApiMode } from '@/api/apiClient'
 
-type WorkerUser = User & { name?: string | null; isActive?: boolean }
-export type AuthLoginResponse = { user: User; playerProfile: PlayerProfile | null; accessToken: string }
-type WorkerAuthResponse = { user: WorkerUser; playerProfile?: PlayerProfile | null; accessToken?: string }
+type ApiUser = User & { name?: string | null; isActive?: boolean }
+export type AuthLoginResponse = { user: User; playerProfile: PlayerProfile | null; accessToken: string; refreshToken: string | null }
+type ApiAuthResponse = { user: ApiUser; playerProfile?: PlayerProfile | null; accessToken?: string; refreshToken?: string }
 export type OtpRequestResponse = { success: true; message: string; developmentOtp?: string }
 
-const toAuthUser = (user: WorkerUser | WorkerAuthResponse): User => {
+const toAuthUser = (user: ApiUser | ApiAuthResponse): User => {
   const account = 'user' in user ? user.user : user
   return {
     id: account.id,
@@ -21,15 +21,18 @@ const authPath = (path: string) => isExplicitMockApiMode ? path : `/api${path}`
 
 export const requestOtp = async (mobile: string): Promise<OtpRequestResponse> => {
   if (!/^[6-9]\d{9}$/.test(mobile)) throw new Error('Invalid mobile number')
-  return (await apiClient.post<OtpRequestResponse>(authPath('/auth/request-otp'), { mobile })).data
+  return (await apiClient.post<OtpRequestResponse>(authPath('/auth/request-otp'), { mobile: isExplicitMockApiMode ? mobile : `+91${mobile}` })).data
 }
 
 export const verifyOtpLogin = async (mobile: string, otp: string, role: Role): Promise<AuthLoginResponse> => {
   if (!/^[6-9]\d{9}$/.test(mobile)) throw new Error('Invalid mobile number')
   if (!/^\d{5}$/.test(otp)) throw new Error('Enter the five-digit OTP')
-  const response = (await apiClient.post<WorkerAuthResponse>(authPath('/auth/login'), { mobile, otp, role })).data
+  const path = isExplicitMockApiMode ? '/auth/login' : '/auth/verify-otp'
+  const response = (await apiClient.post<ApiAuthResponse>(authPath(path), {
+    mobile: isExplicitMockApiMode ? mobile : `+91${mobile}`, otp, role,
+  })).data
   if (!response.accessToken) throw new Error('Login response did not include an access token')
-  return { user: toAuthUser(response), playerProfile: response.playerProfile ?? null, accessToken: response.accessToken }
+  return { user: toAuthUser(response), playerProfile: response.playerProfile ?? null, accessToken: response.accessToken, refreshToken: response.refreshToken ?? null }
 }
 
 /**
@@ -57,7 +60,7 @@ export const mockLogin = async (mobile: string, role: Role): Promise<User> => {
 
   try {
     if (!isExplicitMockApiMode) throw new Error('Request and verify an OTP before logging in')
-    return toAuthUser((await apiClient.post<WorkerAuthResponse>(authPath('/auth/login'), { mobile, role })).data)
+    return toAuthUser((await apiClient.post<ApiAuthResponse>(authPath('/auth/login'), { mobile, role })).data)
   } catch (error) {
     if (isExplicitMockApiMode && import.meta.env.VITE_ENABLE_MOCK_AUTH_FALLBACK === 'true') {
       return user
@@ -66,9 +69,9 @@ export const mockLogin = async (mobile: string, role: Role): Promise<User> => {
   }
 }
 
-/** Reads the persisted account again so the Worker remains the source of truth. */
+/** Reads the persisted account again so the API remains the source of truth. */
 export const getCurrentUser = async (userId: string): Promise<User> => {
-  const user = (await apiClient.get<WorkerUser>(`/api/users/${userId}`)).data
+  const user = (await apiClient.get<ApiUser>(`/api/users/${userId}`)).data
   if (user.isActive === false) throw new Error('This account is inactive')
   return toAuthUser(user)
 }

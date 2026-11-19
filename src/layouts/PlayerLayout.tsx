@@ -1,11 +1,12 @@
 import { Link, Outlet } from 'react-router-dom'
+import { logoutSession } from '@/api/apiClient'
 import { useAuthStore } from '@/store/authStore'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 import { MobileAppHeader, MobileBottomNavigation, RolePageBack } from '@/components/mobile/MobileAppShell'
 import smashPointLogo from '@/assets/mlogo.png'
 
 const PlayerLayout = () => {
-  const { user, logout } = useAuthStore()
+  const user = useAuthStore(state => state.user)
   const { unreadCount } = useNotifications()
   const navigation = [
     { to: '/player/dashboard', label: 'Home', icon: 'home' as const, match: (path: string) => path === '/player' || path.startsWith('/player/dashboard') },
@@ -16,10 +17,10 @@ const PlayerLayout = () => {
   ]
 
   return <div className="mobile-app-shell">
-    <MobileAppHeader brand="SmashPoint" section="Player" homeTo="/player/dashboard" notificationsTo="/player/notifications" unreadCount={unreadCount} onLogout={logout} />
+    <MobileAppHeader brand="SmashPoint" section="Player" homeTo="/player/dashboard" notificationsTo="/player/notifications" unreadCount={unreadCount} onLogout={logoutSession} />
     <div className="desktop-role-bar">
       <div><Link to="/player/dashboard" className="desktop-role-brand"><img src={smashPointLogo} alt="SmashPoint" /><small>Player</small></Link><nav>{navigation.map(item => <Link key={item.to} to={item.to}>{item.label}</Link>)}</nav></div>
-      {user && <button type="button" onClick={logout}>Logout</button>}
+      {user && <button type="button" onClick={logoutSession}>Logout</button>}
     </div>
     <main className="mobile-app-content"><RolePageBack homeTo="/player/dashboard" /><Outlet /></main>
     <MobileBottomNavigation items={navigation} />

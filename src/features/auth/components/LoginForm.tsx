@@ -53,18 +53,23 @@ const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
     setLoading(true)
     try {
       const auth = await verifyOtpLogin(mobile, otp, role)
-      login(auth.user, auth.accessToken)
-      if (auth.user.role === 'PLAYER') { const profile = auth.playerProfile ?? await getPlayerProfileForUser(auth.user); if (profile) usePlayerProfileStore.getState().createProfile(profile); else usePlayerProfileStore.getState().clearProfile() } else usePlayerProfileStore.getState().clearProfile()
+      login(auth.user, auth.accessToken, auth.refreshToken)
+      if (auth.user.role === 'PLAYER') {
+        const revision = useAuthStore.getState().sessionRevision
+        const profile = auth.playerProfile ?? await getPlayerProfileForUser(auth.user).catch(() => null)
+        if (useAuthStore.getState().sessionRevision !== revision) return
+        if (profile) usePlayerProfileStore.getState().createProfile(profile)
+      }
       navigate(auth.user.role === 'PLAYER' ? '/player/dashboard' : auth.user.role === 'ORGANIZER' ? '/organizer/dashboard' : '/admin/dashboard')
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Login failed') }
     finally { setLoading(false) }
   }
 
   return <div className={`reference-login-form-wrap ${adminMode ? 'reference-admin-mode' : ''}`}><form onSubmit={verify} className="reference-login-form">
-    {adminMode && <button type="button" className="reference-admin-back" onClick={onBackToNormal}>← Back to Player / Organizer Login</button>}
-    <div className="reference-field-group"><label htmlFor="mobile">Mobile Number</label><div className="reference-mobile-field"><strong>+91</strong><span className="reference-chevron">⌄</span><input id="mobile" type="tel" inputMode="numeric" autoComplete="tel" value={mobile} onChange={(event) => { setMobile(event.target.value.replace(/\D/g, '')); resetOtp() }} maxLength={10} placeholder="Enter your mobile number" /></div></div>
-    {!adminMode && <div className="reference-role-group"><p>I'm here as a</p><div className="reference-role-list">{roles.map((item) => <label key={item.value} className="group relative cursor-pointer"><input type="radio" value={item.value} checked={role === item.value} onChange={() => { setRole(item.value); resetOtp(); setError(null) }} className="peer sr-only" /><span className="reference-role-card"><img src={item.image} alt="" /><span className="reference-role-copy"><i className="reference-radio" /><span><strong>{item.label}</strong><small>{item.detail}</small></span></span><b className="reference-role-arrow">›</b></span></label>)}</div></div>}
-    {otpRequested && <div className="reference-otp-panel"><label htmlFor="otp">{adminMode ? 'Admin Verification' : 'Enter five-digit OTP'}</label><input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />{developmentHint && <p>{developmentHint}</p>}</div>}
+    {adminMode && <button type="button" className="reference-admin-back" onClick={onBackToNormal} disabled={loading}>← Back to Player / Organizer Login</button>}
+    <div className="reference-field-group"><label htmlFor="mobile">Mobile Number</label><div className="reference-mobile-field"><strong>+91</strong><span className="reference-chevron">⌄</span><input id="mobile" type="tel" inputMode="numeric" autoComplete="tel" disabled={loading} value={mobile} onChange={(event) => { setMobile(event.target.value.replace(/\D/g, '')); resetOtp() }} maxLength={10} placeholder="Enter your mobile number" /></div></div>
+    {!adminMode && <div className="reference-role-group"><p>I'm here as a</p><div className="reference-role-list">{roles.map((item) => <label key={item.value} className="group relative cursor-pointer"><input type="radio" disabled={loading} value={item.value} checked={role === item.value} onChange={() => { setRole(item.value); resetOtp(); setError(null) }} className="peer sr-only" /><span className="reference-role-card"><img src={item.image} alt="" /><span className="reference-role-copy"><i className="reference-radio" /><span><strong>{item.label}</strong><small>{item.detail}</small></span></span><b className="reference-role-arrow">›</b></span></label>)}</div></div>}
+    {otpRequested && <div className="reference-otp-panel"><label htmlFor="otp">{adminMode ? 'Admin Verification' : 'Enter five-digit OTP'}</label><input id="otp" type="text" disabled={loading} inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />{developmentHint && <p>{developmentHint}</p>}</div>}
     {!otpRequested ? <button type="button" onClick={request} disabled={loading} className="reference-request-button">{loading ? (adminMode ? 'Requesting Admin OTP...' : 'Requesting...') : (adminMode ? 'Request Admin OTP  →' : 'Request OTP  →')}</button> : <div className="space-y-3"><button type="submit" disabled={loading} className="reference-request-button">{loading ? 'Verifying...' : 'Verify OTP  →'}</button><button type="button" onClick={request} disabled={loading} className="reference-resend">Resend OTP</button></div>}
     {(error || sessionMessage) && <p role="alert" className="reference-login-error">{error || sessionMessage}</p>}
   </form></div>
