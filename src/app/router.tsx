@@ -1,3 +1,4 @@
+import { CourtsPage, VenueBookingPage, BookingHistoryPage, BookingDetailsPage } from '@/features/courtBooking/BookingPages'
 import { FriendlyHomePage } from '@/features/friendly/pages/FriendlyHomePage'
 import { FriendlyCreatePage } from '@/features/friendly/pages/FriendlyCreatePage'
 import { FriendlyBrowsePage } from '@/features/friendly/pages/FriendlyBrowsePage'
@@ -59,6 +60,10 @@ const router = createBrowserRouter([
       { index: true, element: <PlayerDashboard /> },
       { path: 'dashboard', element: <PlayerDashboard /> },
       { path: 'profile', element: <PlayerProfilePage /> },
+      { path: 'courts', element: <CourtsPage /> },
+      { path: 'courts/:venueId', element: <VenueBookingPage /> },
+      { path: 'court-bookings', element: <BookingHistoryPage /> },
+      { path: 'court-bookings/:bookingId', element: <BookingDetailsPage /> },
       { path: 'profile/edit', element: <PlayerProfilePage /> },
       // Player tournament routes
       {
