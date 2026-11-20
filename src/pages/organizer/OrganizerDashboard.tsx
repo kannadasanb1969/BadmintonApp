@@ -1,71 +1,70 @@
-import { Link } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
-import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { createDoublesFixtureDemo } from '@/features/tournaments/services/demoTournamentService'
+import { Link, useNavigate } from 'react-router-dom'
 import { isExplicitMockApiMode } from '@/api/apiClient'
+import { AppIcon } from '@/components/mobile/MobileAppShell'
+import { isTournamentCompleted, TournamentCardResults } from '@/features/player/components/TournamentCardResults'
+import { useResultStore } from '@/features/fixtures/store/resultStore'
+import { createDoublesFixtureDemo } from '@/features/tournaments/services/demoTournamentService'
+import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
+import { formatDateDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers'
+import { useAuthStore } from '@/store/authStore'
 
 const OrganizerDashboard = () => {
   const user = useAuthStore(state => state.user)
   const tournaments = useTournamentStore(state => state.tournaments)
+  const loading = useTournamentStore(state => state.loading)
+  const error = useTournamentStore(state => state.error)
+  const results = useResultStore(state => state.results)
   const navigate = useNavigate()
+  const owned = tournaments.filter(item => item.organizerId === user?.id)
+  const stats = [
+    ['Tournaments', owned.length],
+    ['Published', owned.filter(item => item.status === 'PUBLISHED').length],
+    ['Completed', owned.filter(item => isTournamentCompleted(item, results)).length],
+    ['Drafts', owned.filter(item => item.status === 'DRAFT').length],
+  ] as const
 
-  // Get tournaments for the current organizer
-  const organizerTournaments = useMemo(() => {
-    if (!user) {
-      return []
-    }
-
-    return tournaments.filter(
-      tournament => tournament.organizerId === user.id
-    )
-  }, [tournaments, user])
-
-  // Calculate stats
-  const totalTournaments = organizerTournaments.length
-  const draftTournaments = organizerTournaments.filter(t => t.status === 'DRAFT').length
-  const pendingApprovalTournaments = organizerTournaments.filter(t => t.status === 'PENDING_ADMIN_APPROVAL').length
-  const publishedTournaments = organizerTournaments.filter(t => t.status === 'PUBLISHED').length
-
-  return (
-    <div className="space-y-6">
-      <section className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-slate-950 to-emerald-900 p-6 text-white sm:flex-row sm:items-end sm:justify-between sm:p-8"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Match control center</p><h1 className="mt-2 text-3xl font-black">Run a smooth tournament.</h1><p className="mt-2 text-sm text-slate-300">Create events, fill draws, and keep every court moving.</p></div><Link to="/organizer/tournaments/new" className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-white">+ Create tournament</Link></section>
-      {isExplicitMockApiMode && <button type="button" onClick={async () => { if (!user) return; const id = await createDoublesFixtureDemo(user); navigate(`/organizer/tournaments/${id}`) }} className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100">Create 16-team doubles test tournament</button>}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 p-6 bg-white shadow-sm transition hover:shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Tournaments</h2>
-          <p className="text-gray-600 mb-4">
-            Manage your badminton tournaments. Create new tournaments, view existing ones, and submit them for approval.
-          </p>
-          <Link
-            to="/organizer/tournaments"
-            className="inline-block rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600"
-          >
-            Manage Tournaments
-          </Link>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 p-6 bg-white shadow-sm transition hover:shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Quick Stats</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Total Tournaments</span>
-              <span className="rounded-lg bg-slate-100 px-3 py-1 text-lg font-bold">{totalTournaments}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Draft Tournaments</span>
-              <span className="rounded-lg bg-amber-50 px-3 py-1 text-lg font-bold text-amber-700">{draftTournaments}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Pending Approval</span>
-              <span className="rounded-lg bg-blue-50 px-3 py-1 text-lg font-bold text-blue-700">{pendingApprovalTournaments}</span>
-            </div>
-          </div>
-        </div>
+  return <div className="organizer-home">
+    <header className="organizer-home-hero">
+      <h1>Your tournaments</h1>
+      <p>Manage tournaments, registrations, fixtures and live scores.</p>
+      <dl>{stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    </header>
+    <div className="organizer-home-actions">
+      <div className="organizer-create-card">
+        <div><h2>Create tournament</h2><p>Start a new badminton event</p></div>
+        <Link to="/organizer/tournaments/new"><AppIcon name="plus" /> Create</Link>
       </div>
+      <Link className="organizer-notice workspace-white-card" to="/organizer/notifications">
+        <AppIcon name="bell" /><div><strong>Notifications</strong><p>View organizer updates</p></div><span aria-hidden="true">›</span>
+      </Link>
     </div>
-  )
+    {isExplicitMockApiMode && <button type="button" className="mobile-secondary-button" onClick={async () => {
+      if (!user) return
+      const id = await createDoublesFixtureDemo(user)
+      navigate(`/organizer/tournaments/${id}`)
+    }}>Create 16-team doubles test tournament</button>}
+    <section>
+      <div className="workspace-section-heading"><h2>My tournaments</h2><Link to="/organizer/tournaments">Manage tournaments ›</Link></div>
+      {loading && <p role="status">Loading tournaments…</p>}
+      {error && <p role="alert">{error}</p>}
+      {!loading && !error && owned.length === 0 && <div className="workspace-white-card">
+        <strong>No tournaments yet</strong><p>Create your first tournament and start organizing matches.</p>
+        <Link to="/organizer/tournaments/new">Create tournament ›</Link>
+      </div>}
+      <div className="organizer-home-list">
+        {owned.map(item => {
+          const completed = isTournamentCompleted(item, results)
+          const status = getStatusLabel(item.status)
+          return <article className="workspace-white-card organizer-tournament-card" key={item.id}>
+            <div><span className={`organizer-event-status ${status.color}`}>{completed ? 'Completed' : status.label}</span><small>{formatDateDisplay(item.tournamentDate)}</small></div>
+            <h3>{item.name}</h3>
+            {completed && <TournamentCardResults tournament={item} results={results} />}
+            <footer><span>Badminton tournament</span><Link to={'/organizer/tournaments/' + encodeURIComponent(item.id)}>View tournament ›</Link></footer>
+          </article>
+        })}
+      </div>
+    </section>
+  </div>
 }
 
 export default OrganizerDashboard

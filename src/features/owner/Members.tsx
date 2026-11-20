@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ownerWrite, segment, useOwnerQuery, type Academy, type Batch, type Fee, type Member, type Membership, type Payment } from './api'
 import { ActionForm, field, ItemsSelect, optional, Panel, PaymentMode, QueryState, readable, rupees, TextField, today } from './ui'
 
@@ -18,9 +18,13 @@ export function Members({ academy }: { academy: Academy }) {
   const members = useOwnerQuery<Member[]>('/members', { academyId: academy.id })
   const batches = useOwnerQuery<Batch[]>('/batches', { academyId: academy.id })
   const [filter, setFilter] = useState('')
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash === '#add-member') document.getElementById('add-member')?.focus()
+  }, [hash])
   const filtered = members.data?.filter(member => (member.name + ' ' + (member.mobile ?? '')).toLowerCase().includes(filter.toLowerCase().trim()))
   return <>
-    <Panel title="Add member"><ActionForm label="Add member" reset perform={data => {
+    <div id="add-member" tabIndex={-1}><Panel title="Add member"><ActionForm label="Add member" reset perform={data => {
       const batchId = optional(data, 'batchId')
       const startDate = optional(data, 'startDate')
       const monthlyFee = optional(data, 'monthlyFee')
@@ -28,7 +32,7 @@ export function Members({ academy }: { academy: Academy }) {
       return ownerWrite('/members', { academyId: academy.id, name: field(data, 'name'), mobile: optional(data, 'mobile'), ...(batchId ? { batchId, startDate, monthlyFee } : {}) })
     }}>
       <div className="owner-fields"><TextField name="name" label="Member name" required /><TextField name="mobile" label="Mobile" type="tel" /><EnrollmentFields batches={batches.data ?? []} /></div>
-    </ActionForm></Panel>
+    </ActionForm></Panel></div>
     <Panel title="Members">
       <label>Search members<input type="search" value={filter} onChange={event => setFilter(event.target.value)} /></label>
       <QueryState query={members} />

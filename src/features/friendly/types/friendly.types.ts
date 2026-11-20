@@ -14,6 +14,10 @@ export interface FriendlyMatch {
   status: FriendlyMatchStatus
   created_at: string
   updated_at: string
+  scheduled_at?: string | null
+  scheduledAt?: string | null
+  start_date?: string | null
+  startDate?: string | null
   participant_count?: number | string
   isCreator: boolean
   isParticipant: boolean

@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './app/App'
 import './styles/globals.css'
+import './styles/mobile-workspaces.css'
 
 // Clear stale caches from the pre-Worker mock architecture once. Auth and the
 // unsaved doubles-registration draft remain valid local session/UI state.
