@@ -40,13 +40,13 @@ export function authenticate(java) {
     const authorization = req.get('authorization') || ''
     let id
     try {
-      const match = /^Bearer ([\w-]+)\.([\w-]+)\.([\w-]+)$/.exec(authorization)
-      const claims = JSON.parse(Buffer.from(match?.[2] ?? '', 'base64url').toString())
+      const match = /^Bearer ([\w-]+)\.([\w-]+)$/.exec(authorization)
+      const claims = JSON.parse(Buffer.from(match?.[1] ?? '', 'base64url').toString())
       id = resourceId(claims.sub)
     } catch {
       throw new WebApiError(401, 'Sign in to continue')
     }
-    // The unverified subject only selects the who-am-I URL. Java validates the bearer and account.
+    // Java issues payload.signature tokens. This subject only selects the who-am-I URL.
     const user = await java(authorization, '/api/users/' + id)
     if (typeof user?.id !== 'string' || id !== encodeURIComponent(user.id) || user.isActive === false) {
       throw new WebApiError(401, 'Sign in to continue')

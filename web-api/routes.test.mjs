@@ -16,7 +16,7 @@ test('web endpoint contracts across push, tournament and test checkout', async t
     is_read boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
   )`)
   const pool = { query: db.query.bind(db), connect: async () => ({ query: db.query.bind(db), release() {} }) }
-  const token = sub => 'Bearer test.' + Buffer.from(JSON.stringify({ sub })).toString('base64url') + '.signature'
+  const token = sub => 'Bearer ' + Buffer.from(JSON.stringify({ sub })).toString('base64url') + '.signature'
   const player = { id: 'player-1', role: 'PLAYER', isActive: true }
   const organizer = { id: 'organizer-1', role: 'ORGANIZER', isActive: true }
   const stranger = { id: 'player-2', role: 'PLAYER', isActive: true }
