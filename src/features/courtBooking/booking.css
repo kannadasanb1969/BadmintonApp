@@ -1,0 +1,69 @@
+.court-booking-page {
+  background: #edf6ef;
+  color: #153629;
+  border-radius: 24px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(16px, 4vw, 36px);
+  display: grid;
+  gap: 16px;
+}
+
+.court-booking-header, .court-card-footer, .court-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.court-booking-header, .court-card-footer { justify-content: space-between; }
+.court-booking-header h1 { font-size: clamp(1.55rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.13; }
+.court-booking-page h2 { font-size: 1.18rem; font-weight: 750; }
+.court-booking-page p { color: #426253; }
+.court-panel { background: white; border: 1px solid #d4e7db; border-radius: 16px; padding: 16px; }
+.court-search { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.court-search label:first-child { flex: 1 1 180px; }
+.court-booking-page label { display: grid; gap: 6px; font-weight: 650; }
+.court-booking-page input, .court-booking-page select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #a9c5b4;
+  border-radius: 9px;
+  background: white;
+  color: #153629;
+  padding: 7px 10px;
+}
+
+.court-primary, .court-outline {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  width: fit-content;
+  padding: 7px 14px;
+  border: 1px solid #096448;
+  border-radius: 9px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.court-primary { background: #096448; color: white; }
+.court-outline { background: white; color: #096448; }
+.court-primary:hover:not(:disabled) { background: #07513a; }
+.court-outline:hover:not(:disabled) { background: #e8f5ed; }
+.court-booking-page :focus-visible { outline: 2px solid #096448; outline-offset: 3px; }
+.court-booking-page :disabled { opacity: .6; cursor: not-allowed; }
+.court-venue-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 16px; }
+.court-venue-card { overflow: hidden; padding: 0; }
+.court-card-body, .court-slot-form, .court-slot-form fieldset, .court-review { display: grid; gap: 10px; }
+.court-card-body { padding: 16px; }
+.court-image { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #d8eee1; }
+.court-image-placeholder { display: grid; place-items: center; font-size: 2rem; }
+.court-photo-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; margin-top: 8px; }
+.court-photo-row .court-image { border-radius: 10px; }
+.court-time-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.court-slot-form fieldset { padding: 0; border: 0; margin: 0; }
+.court-slot-form input[type='date'] { max-width: 215px; }
+.court-days { display: flex; flex-wrap: wrap; gap: 6px; }
+.court-days [aria-pressed='true'] { background: #096448; color: white; }
+.court-back, .court-error a { color: #096448; font-weight: 700; text-decoration: underline; }
+.court-error { color: #8e2525; }

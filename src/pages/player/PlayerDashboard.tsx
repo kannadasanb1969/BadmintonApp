@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
@@ -26,6 +26,14 @@ const PlayerDashboard = () => {
 
   return <div className="player-dashboard space-y-6 px-4 py-5 sm:px-2 sm:py-0" style={{ backgroundImage: `linear-gradient(180deg, rgb(1 13 16 / .82), rgb(1 13 16 / .96)), url(${dashboardBackground})` }}>
     <section className="player-dashboard-hero"><div className="relative z-10 flex items-start justify-between gap-4"><div><p>Welcome back</p><h1>Hi, {profile?.fullName?.split(' ')[0] || 'Player'} 👋</h1><span>{profile ? `${profile.playerCode} · Ready for your next rally` : 'Set up your profile to start playing'}</span></div><img className="h-14 w-14 rounded-2xl object-cover ring-2 ring-lime-300/70" src={profile?.profilePhoto || defaultProfilePhoto} alt="Profile" /></div>{!hasProfile && <button type="button" onClick={() => navigate('/player/profile')} className="player-profile-prompt">Complete your player profile <span>→</span></button>}</section>
+
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-emerald-50 p-4 text-emerald-950 sm:p-5">
+      <div><h2 className="text-xl font-bold">Book a court</h2><p className="mt-1 text-sm text-emerald-800">Find venues and check live slot availability.</p></div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Link className="rounded-lg bg-emerald-800 px-4 py-2 font-semibold text-white" to="/player/courts">Find courts</Link>
+        <Link className="font-semibold text-emerald-900 underline" to="/player/court-bookings">My bookings</Link>
+      </div>
+    </section>
 
     <section className="grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" onClick={() => navigate('/player/registrations')} className="player-stat-card"><AppIcon name="clipboard" /><strong>{userRegistrations.length}</strong><span>Active entries</span></button><button type="button" onClick={() => navigate('/player/tournaments')} className="player-stat-card"><AppIcon name="trophy" /><strong>{availableTournaments.length}</strong><span>Open events</span></button><button type="button" onClick={() => navigate('/player/players')} className="player-stat-card"><AppIcon name="user" /><strong>Find</strong><span>Players</span></button><button type="button" onClick={() => navigate('/player/notifications')} className="player-stat-card"><AppIcon name="bell" /><strong>{unreadCount}</strong><span>New alerts</span></button></section>
 
