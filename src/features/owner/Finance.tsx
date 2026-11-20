@@ -34,7 +34,7 @@ export function OwnerDashboard({ academy }: { academy: Academy }) {
     setMonth(next.toISOString().slice(0, 7))
   }
   const quick: { title: string; to: string; icon: AppIconName; tone: string }[] = [
-    { title: 'Add member', to: '/owner/members#add-member', icon: 'people', tone: 'blue' },
+    { title: 'Add member', to: '/owner/members/new', icon: 'people', tone: 'blue' },
     { title: 'Collect fee', to: '/owner/fees', icon: 'cash', tone: 'green' },
     { title: 'View bookings', to: '/owner/bookings', icon: 'calendar', tone: 'purple' },
     { title: 'Automatic reminders', to: '/owner/reminders/automatic', icon: 'bell', tone: 'red' },

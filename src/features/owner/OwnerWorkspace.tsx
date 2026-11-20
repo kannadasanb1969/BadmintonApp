@@ -7,7 +7,7 @@ import PlayerNotificationsPage from '@/features/notifications/pages/PlayerNotifi
 import { AcademyForm, AcademySettings, Courts } from './Academy'
 import { Assistant } from './Assistant'
 import { Fees, OwnerDashboard, Receipt, Subscription, SubscriptionInvoice, SubscriptionOrder } from './Finance'
-import { Members, MemberDetails } from './Members'
+import { AddMember, Members, MemberDetails } from './Members'
 import { Batches, BookingDetails, Calendar, OwnerBookings } from './Operations'
 import { AutoReminders, Reminders } from './Reminders'
 import { ownerWrite, segment, useOwnerQuery, type Academy } from './api'
@@ -122,8 +122,9 @@ export default function OwnerWorkspace() {
               <Route path="bookings" element={<OwnerBookings academy={academy} />} />
               <Route path="bookings/:id" element={<BookingRoute />} />
               <Route path="booking-receipts/:id" element={<ReceiptRoute booking />} />
-              <Route path="members" element={<><Link className="owner-secondary" to="/owner/members/duplicates">Review duplicate members</Link><Members academy={academy} /></>} />
+              <Route path="members" element={<Members academy={academy} />} />
               <Route path="members/duplicates" element={<IdentityReviews />} />
+              <Route path="members/new" element={<AddMember academy={academy} />} />
               <Route path="members/:id" element={<MemberRoute academy={academy} />} />
               <Route path="fees" element={<Fees academy={academy} />} />
               <Route path="receipts/:id" element={<ReceiptRoute />} />
