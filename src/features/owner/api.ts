@@ -34,19 +34,21 @@ export async function ownerWrite<T = unknown>(path: string, data: unknown = {}, 
 }
 
 export const ownerKey = ['owner'] as const
-export function useOwnerQuery<T>(path: string, params?: Record<string, string>, enabled = true) {
+export function useOwnerQuery<T>(path: string, params?: Record<string, string>, enabled = true, refreshWhile?: (data: T | undefined) => boolean) {
   const user = useAuthStore(state => state.user?.id)
   return useQuery({
     queryKey: [...ownerKey, user, path, params],
     queryFn: ({ signal }) => ownerRead<T>(path, params, signal),
     enabled: Boolean(user && path && enabled),
     retry: false,
+    refetchOnWindowFocus: 'always',
+    refetchInterval: query => refreshWhile?.(query.state.data) ? 5000 : false,
   })
 }
 
-export async function uploadVenuePhoto(file: File) {
+export async function uploadVenuePhoto(file: File, uploadId: string = crypto.randomUUID()) {
   const body = new FormData()
   body.append('file', file)
-  body.append('uploadId', crypto.randomUUID())
+  body.append('uploadId', uploadId)
   return (await apiClient.post<Photo>(root + '/photo-uploads', body, { headers: { 'Content-Type': undefined } })).data
 }

@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { ownerWrite, segment, useOwnerQuery, type Academy, type Billing, type Fee, type Invoice, type Mandate, type Order, type Payment, type Plan } from './api'
+import { ownerKey, ownerWrite, segment, useOwnerQuery, type Academy, type Billing, type Fee, type Invoice, type Mandate, type Order, type Payment, type Plan } from './api'
 import { ActionForm, Panel, QueryState, readable, rupees, today } from './ui'
 
 type Summary = { expectedCollection: string; collected: string; outstanding: string }
@@ -92,6 +93,9 @@ function checkoutLink(value?: string) {
 
 function BillingActions({ billing, plans }: { billing: Billing; plans: Plan[] }) {
   const navigate = useNavigate()
+  const client = useQueryClient()
+  const reconciling = useRef(false)
+  const [reconciliationError, setReconciliationError] = useState('')
   const [tier, setTier] = useState(String(billing.tier ?? plans[0]?.tier ?? ''))
   const [quote, setQuote] = useState<{ payableNow?: string; amount?: string; amountDue?: string; amountPaise?: number }>()
   const keys = useRef(new Map<string, string>())
@@ -106,6 +110,27 @@ function BillingActions({ billing, plans }: { billing: Billing; plans: Plan[] })
   const mandateState = mandate.data?.mandate
   const liveMandate = Boolean(mandateState?.id && !['CANCELLED', 'COMPLETED', 'EXPIRED'].includes(mandateState.status ?? ''))
   const payLink = checkoutLink(mandateState?.checkoutUrl)
+  useEffect(() => {
+    if (!liveMandate) return
+    const reconcile = async () => {
+      if (document.visibilityState === 'hidden' || reconciling.current) return
+      reconciling.current = true
+      setReconciliationError('')
+      try {
+        await ownerWrite('/subscription/autopay/refresh')
+        await client.invalidateQueries({ queryKey: ownerKey })
+      } catch (error) {
+        setReconciliationError(error instanceof Error ? error.message : 'Could not refresh AutoPay status.')
+      } finally { reconciling.current = false }
+    }
+    const onReturn = () => { void reconcile() }
+    window.addEventListener('focus', onReturn)
+    document.addEventListener('visibilitychange', onReturn)
+    return () => {
+      window.removeEventListener('focus', onReturn)
+      document.removeEventListener('visibilitychange', onReturn)
+    }
+  }, [liveMandate, client])
   const currentTier = billing.tier ?? 0
   const startOrder = async (operation: string, selected?: number) => {
     const key = operation + ':' + (selected ?? '')
@@ -131,6 +156,7 @@ function BillingActions({ billing, plans }: { billing: Billing; plans: Plan[] })
     {billing.pendingChange?.kind === 'DOWNGRADE' && <ActionForm label="Cancel downgrade" confirm="Remove the scheduled downgrade?" perform={() => ownerWrite('/subscription/downgrade/cancel')} />}
     {billing.autoPayAvailable && <div className="owner-flow">
       <h3>AutoPay</h3><QueryState query={mandate} />
+      {reconciliationError && <p role="alert">{reconciliationError}</p>}
       {mandateState?.status && <p>Mandate: {readable(mandateState.status)}{mandateState.nextDebitAt ? ' · Next debit ' + mandateState.nextDebitAt : ''}</p>}
       {payLink && <a className="owner-primary" href={payLink} target="_blank" rel="noopener noreferrer">Open Razorpay mandate</a>}
       <div className="owner-actions">
@@ -172,12 +198,17 @@ export function Subscription() {
 }
 
 export function SubscriptionOrder({ id }: { id: string }) {
-  const order = useOwnerQuery<Order>('/subscription/orders/' + segment(id))
+  const client = useQueryClient()
+  const order = useOwnerQuery<Order>('/subscription/orders/' + segment(id), undefined, true,
+    data => Boolean(data && ['CREATED', 'PENDING'].includes(data.status)))
   const billing = useOwnerQuery<Billing>('/subscription')
   const data = order.data
   const open = data && ['CREATED', 'PENDING'].includes(data.status)
   const providerMatches = (billing.data?.paymentMode === 'TEST' && data?.provider === 'razorpay-test') || (billing.data?.paymentMode === 'LIVE' && data?.provider === 'razorpay-live')
   const link = open && providerMatches ? checkoutLink(data.checkoutReference) : null
+  useEffect(() => {
+    if (data?.status === 'PAID') void client.invalidateQueries({ queryKey: [...ownerKey], predicate: query => query.queryKey[2] !== '/subscription/orders/' + segment(id) })
+  }, [data?.status, client, id])
   return <Panel title="Subscription order">
     <QueryState query={order} />
     {data && <>

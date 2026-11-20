@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { ownerWrite, segment, uploadVenuePhoto, useOwnerQuery, type Academy, type Album, type Court } from './api'
+import { useRef, useState } from 'react'
+import { ApiError } from '@/api/apiClient'
+import { ownerWrite, segment, uploadVenuePhoto, useOwnerQuery, type Academy, type Album, type Court, type Photo } from './api'
 import { ActionForm, field, optional, Panel, QueryState, readable, rupees, TextField } from './ui'
 
 const academyPayload = (data: FormData, current?: Academy) => ({
@@ -21,29 +22,55 @@ function AcademyFields({ academy }: { academy?: Academy }) {
 }
 const pickFiles = (data: FormData) => data.getAll('photos').filter((item): item is File => item instanceof File && item.size > 0)
 
+function usePhotoUploads() {
+  const uploads = useRef(new Map<File, { id: string; photo?: Photo }>())
+  return async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) throw new Error('Each venue photo must be 10 MB or smaller.')
+    const entry = uploads.current.get(file) ?? { id: crypto.randomUUID() }
+    uploads.current.set(file, entry)
+    entry.photo ??= await uploadVenuePhoto(file, entry.id)
+    return entry.photo
+  }
+}
+
 export function AcademyForm({ academy }: { academy?: Academy }) {
+  const upload = usePhotoUploads()
+  const [prepared, setPrepared] = useState<Record<string, unknown> | null>(null)
   return <Panel title={academy ? 'Academy profile' : 'Set up your academy'}>
-    <ActionForm key={academy?.id ?? 'new'} label={academy ? 'Save profile' : 'Create academy'} perform={async data => {
+    <ActionForm key={academy?.id ?? 'new'} label={academy ? 'Save profile' : prepared ? 'Retry academy creation' : 'Create academy'} perform={async data => {
       const payload = academyPayload(data, academy)
       if (academy) return ownerWrite('/academies/' + segment(academy.id), payload, 'PATCH')
-      const files = pickFiles(data)
-      if (files.length < 1 || files.length > 5) throw new Error('Choose between one and five venue photos.')
-      const photos = await Promise.all(files.map(uploadVenuePhoto))
-      return ownerWrite('/academies', { ...payload, photoIds: photos.map(photo => photo.id), coverPhotoId: photos[0].id, registrationId: crypto.randomUUID() })
+      let request = prepared
+      if (!request) {
+        const files = pickFiles(data)
+        if (files.length < 1 || files.length > 5) throw new Error('Choose between one and five venue photos.')
+        const photos = await Promise.all(files.map(upload))
+        request = { ...payload, photoIds: photos.map(photo => photo.id), coverPhotoId: photos[0].id, registrationId: crypto.randomUUID() }
+        setPrepared(request)
+      }
+      try { return await ownerWrite('/academies', request) }
+      catch (error) {
+        if (error instanceof ApiError && error.status && error.status < 500) setPrepared(null)
+        throw error
+      }
     }}>
-      <AcademyFields academy={academy} />
-      {!academy && <label>Venue photos (1–5)<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required /></label>}
+      <fieldset disabled={Boolean(prepared)}>
+        <AcademyFields academy={academy} />
+        {!academy && <label>Venue photos (1–5)<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required /></label>}
+      </fieldset>
+      {prepared && <p>Retry to recover the academy creation request.</p>}
     </ActionForm>
   </Panel>
 }
 
 function GalleryEdit({ album, path }: { album: Album; path: string }) {
+  const upload = usePhotoUploads()
   const [photos, setPhotos] = useState(album.photos)
   const [cover, setCover] = useState(album.photos.find(photo => photo.isCover)?.id ?? album.photos[0]?.id)
   const persist = async (data: FormData) => {
     const files = pickFiles(data)
     if (photos.length + files.length > 5) throw new Error('An album supports at most five photos.')
-    const next = [...photos, ...await Promise.all(files.map(uploadVenuePhoto))]
+    const next = [...photos, ...await Promise.all(files.map(upload))]
     const coverId = next.some(item => item.id === cover) ? cover : next[0]?.id
     const saved = await ownerWrite<Album>(path, { version: album.version, photoIds: next.map(photo => photo.id), coverPhotoId: coverId ?? null }, 'PUT')
     setPhotos(saved.photos)

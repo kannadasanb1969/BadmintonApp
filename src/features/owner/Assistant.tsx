@@ -24,6 +24,7 @@ export function Assistant({ academy }: { academy: Academy }) {
   const [result, setResult] = useState<VoiceResult>()
   const [receipt, setReceipt] = useState('')
   const recognition = useRef<SpeechSession | null>(null)
+  const commandVersion = useRef(0)
   const batches = useOwnerQuery<Batch[]>('/batches', { academyId: academy.id })
   useEffect(() => () => recognition.current?.abort(), [])
   const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition
@@ -32,11 +33,15 @@ export function Assistant({ academy }: { academy: Academy }) {
     setSpeechError('')
     const session = new Recognition()
     session.lang = language
-    session.onresult = event => { setTranscript(event.results[0][0].transcript); setResult(undefined) }
-    session.onerror = () => setSpeechError('Voice input is unavailable. Type the command to continue.')
+    session.onresult = event => {
+      commandVersion.current += 1
+      setTranscript(event.results[0][0].transcript)
+      setResult(undefined)
+    }
+    session.onerror = () => { setListening(false); setSpeechError('Voice input is unavailable. Type the command to continue.') }
     session.onend = () => setListening(false)
     try { recognition.current = session; session.start(); setListening(true) }
-    catch { setSpeechError('Could not start voice input. Type the command to continue.') }
+    catch { setListening(false); setSpeechError('Could not start voice input. Type the command to continue.') }
   }
   return <>
     <Panel title="Voice and typed assistant">
@@ -46,10 +51,12 @@ export function Assistant({ academy }: { academy: Academy }) {
       </div>
       {speechError && <p role="alert">{speechError}</p>}
       <ActionForm label="Preview command" refresh={false} perform={async () => {
+        const version = commandVersion.current
         const value = await ownerWrite<VoiceResult>('/voice/parse', { academyId: academy.id, transcript: transcript.trim() })
+        if (version !== commandVersion.current) return
         setResult(value); setReceipt('')
       }}>
-        <label>Command<textarea required value={transcript} onChange={event => { setTranscript(event.target.value); setResult(undefined) }} placeholder="Show pending fees" /></label>
+        <label>Command<textarea required value={transcript} onChange={event => { commandVersion.current += 1; setTranscript(event.target.value); setResult(undefined) }} placeholder="Show pending fees" /></label>
       </ActionForm>
     </Panel>
     {result && <Panel title={readable(result.intent)}>
