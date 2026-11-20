@@ -32,19 +32,20 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     const session = useAuthStore.getState()
     if (!session.user || !session.isAuthenticated) return
     // Sessions created before token persistence cannot authenticate protected
-    // Worker mutations. They must re-enter through the OTP flow to obtain a
+    // API mutations. They must re-enter through the OTP flow to obtain a
     // real access token; never fabricate one from a user id.
     if (!session.accessToken) {
       session.logout()
       return
     }
-    void notificationApiService.refresh(session.user.id)
-
     void getCurrentUser(session.user.id)
       .then(async (user) => {
-        useAuthStore.getState().login(user)
+        if (useAuthStore.getState().sessionRevision !== session.sessionRevision) return
+        useAuthStore.setState({ user })
+        void notificationApiService.refresh(user.id)
         if (user.role !== 'PLAYER') return
         const profile = await getPlayerProfileForUser(user)
+        if (useAuthStore.getState().sessionRevision !== session.sessionRevision) return
         if (profile) {
           usePlayerProfileStore.getState().createProfile(profile)
           await registrationService.getPlayerRegistrations(profile.id)
@@ -53,7 +54,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         // Preserve the persisted session on transient network failures. Login and
-        // profile mutations still surface the Worker error to the calling UI.
+        // profile mutations still surface the API error to the calling UI.
       })
   }, [hasHydrated])
   return (

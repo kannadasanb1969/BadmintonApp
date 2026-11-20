@@ -1,76 +1,110 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { User, AuthState, Role } from '@/types/auth.types'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { AuthState, User } from '@/types/auth.types'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { useNotificationStore } from '@/features/notifications/services/notificationStore'
 import { isAccessTokenExpired } from '@/features/auth/utils/accessToken'
+import { queryClient } from '@/api/queryClient'
 
 interface AuthStore extends AuthState {
+  refreshToken: string | null
+  sessionRevision: number
   hasHydrated: boolean
   sessionMessage: string | null
-  login: (user: User, accessToken?: string) => void
+  login: (user: User, accessToken: string, refreshToken?: string | null) => void
   logout: () => void
   expireSession: () => void
   setHasHydrated: (hasHydrated: boolean) => void
 }
 
-type PersistedAuthState = Pick<AuthStore, 'user' | 'isAuthenticated' | 'accessToken'> & {
-  sessionMessage?: string | null
+type PersistedAuthState = Pick<AuthStore, 'user' | 'isAuthenticated' | 'accessToken' | 'refreshToken'>
+
+const signedOut: PersistedAuthState = {
+  user: null,
+  isAuthenticated: false,
+  accessToken: null,
+  refreshToken: null,
+}
+
+const clearAccountData = () => {
+  usePlayerProfileStore.getState().clearProfile()
+  useNotificationStore.getState().clearAllNotifications()
+  queryClient.clear()
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist<AuthStore, [], [], PersistedAuthState>(
     (set) => ({
-      user: null,
-      isAuthenticated: false,
-      accessToken: null,
+      ...signedOut,
+      sessionRevision: 0,
       hasHydrated: false,
       sessionMessage: null,
-      login: (user: User, accessToken?: string) => set((state) => ({
-        user,
-        isAuthenticated: true,
-        sessionMessage: null,
-        // A hard-refresh revalidation supplies only the user record. Keep the
-        // existing persisted token in that case.
-        ...(accessToken ? { accessToken } : state.accessToken ? { accessToken: state.accessToken } : {}),
-      })),
+      login: (user, accessToken, refreshToken = null) => {
+        clearAccountData()
+        set((state) => ({
+          user,
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          sessionRevision: state.sessionRevision + 1,
+          sessionMessage: null,
+        }))
+      },
       logout: () => {
-        set({ user: null, isAuthenticated: false, accessToken: null, sessionMessage: null })
-        usePlayerProfileStore.getState().clearProfile()
-        useNotificationStore.getState().clearAllNotifications()
+        set((state) => ({ ...signedOut, sessionRevision: state.sessionRevision + 1, sessionMessage: null }))
+        clearAccountData()
       },
       expireSession: () => {
-        set({ user: null, isAuthenticated: false, accessToken: null, sessionMessage: 'Your session expired. Please log in again.' })
-        usePlayerProfileStore.getState().clearProfile()
-        useNotificationStore.getState().clearAllNotifications()
+        set((state) => ({
+          ...signedOut,
+          sessionRevision: state.sessionRevision + 1,
+          sessionMessage: 'Your session expired. Please log in again.',
+        }))
+        clearAccountData()
       },
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
     }),
     {
       name: 'badminton-auth',
       version: 1,
-      migrate: (persistedState) => {
-        const state = persistedState as Partial<AuthStore>
-        if (!state.isAuthenticated) {
-          return { user: null, isAuthenticated: false, accessToken: null, sessionMessage: null }
+      storage: createJSONStorage(() => {
+        const session = sessionStorage
+        const legacy = localStorage
+        return {
+          getItem: (key) => session.getItem(key) ?? legacy.getItem(key),
+          setItem: (key, value) => {
+            session.setItem(key, value)
+            legacy.removeItem(key)
+          },
+          removeItem: (key) => {
+            session.removeItem(key)
+            legacy.removeItem(key)
+          },
         }
-        if (!state.user || !state.accessToken || isAccessTokenExpired(state.accessToken)) {
-          return { user: null, isAuthenticated: false, accessToken: null, sessionMessage: 'Your session expired. Please log in again.' }
+      }),
+      merge: (persisted, current) => {
+        const state = persisted as Partial<PersistedAuthState> | undefined
+        if (!state?.isAuthenticated || !state.user || !state.accessToken) return { ...current, ...signedOut }
+        return {
+          ...current,
+          user: state.user,
+          isAuthenticated: true,
+          accessToken: state.accessToken,
+          refreshToken: state.refreshToken ?? null,
         }
-        return { user: state.user, isAuthenticated: true, accessToken: state.accessToken, sessionMessage: null }
       },
-      partialize: ({ user, isAuthenticated, accessToken }) => ({
+      partialize: ({ user, isAuthenticated, accessToken, refreshToken }) => ({
         user,
         isAuthenticated,
         accessToken,
-        sessionMessage: null,
+        refreshToken,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.isAuthenticated && isAccessTokenExpired(state.accessToken)) {
+      onRehydrateStorage: (current) => (state) => {
+        if (state?.isAuthenticated && !state.refreshToken && isAccessTokenExpired(state.accessToken)) {
           state.expireSession()
         }
-        state?.setHasHydrated(true)
+        current.setHasHydrated(true)
       },
-    }
-  )
+    },
+  ),
 )
