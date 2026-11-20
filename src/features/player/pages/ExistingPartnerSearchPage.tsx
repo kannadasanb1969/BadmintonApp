@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -110,7 +111,7 @@ const ExistingPartnerSearchPage = () => {
       const currentRegistrations = tournamentRegistrations.filter(
         (reg) =>
           reg.categoryId === categoryId &&
-          reg.status === 'REGISTERED'
+          isConfirmedRegistration(reg.status)
       ).length
 
       const partnerEligibility = evaluatePlayerEligibility(

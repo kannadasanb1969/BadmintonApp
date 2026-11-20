@@ -25,6 +25,7 @@ export interface TournamentCategory {
   genderEligibility?: GenderEligibility;
   minAge?: number;
   maxAge?: number;
+  minTeams?: number;
   maxTeams?: number;
   medalistsAllowed: boolean;
   openPlayersAllowed: boolean;
@@ -52,6 +53,10 @@ export interface Tournament {
   reportingTime: string; // HH:mm format
   registrationCloseDate: string; // ISO date string
   registrationCloseTime: string; // HH:mm format
+  city?: string;
+  state?: string;
+  cityId?: string;
+  stateId?: string;
   venueName: string;
   venueAddress: string;
   mapLink?: string;
@@ -95,6 +100,7 @@ export type TournamentFormValues = Omit<
   | 'publishedAt'
 > & {
   categories: Omit<TournamentCategory, 'id'>[];
+  removedCategoryIds?: string[];
   generalRules: string[];
 };
 

@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -78,7 +79,7 @@ const CategoryFixturePage = () => {
     // Doubles teams are only materialized when fixtures are generated.
     // Each active registration already represents one singles entry or doubles pair.
     const entries = (await registrationService.getTournamentRegistrations(tournamentId))
-      .filter(item => item.categoryId === categoryId && item.status === 'REGISTERED')
+      .filter(item => item.categoryId === categoryId && isConfirmedRegistration(item.status))
     setRegistrations(entries)
 
     const existingFixture = (await fixtureService.getFixtures()).find(item => item.tournamentId === tournamentId && item.categoryId === categoryId)
@@ -131,7 +132,8 @@ const CategoryFixturePage = () => {
   const runnerUp = finalMatch ? (finalMatch.participant1?.id === finalMatch.winnerId ? finalMatch.participant2 : finalMatch.participant1) : undefined
   const registrationPhase = category.registrationPhase ?? 'OPEN'
   const hasRegistrations = entryCount > 0
-  const hasEnoughEntries = entryCount >= 2
+  const minimumEntries = category.minTeams ?? 2
+  const hasEnoughEntries = entryCount >= minimumEntries
   const canGenerateFixture = !entriesLoading && registrationPhase === 'CLOSED' && hasEnoughEntries
   const generationMessage = entriesLoading ? 'Loading registrations...' : error ? null : !hasRegistrations
     ? 'No registrations available yet.'
@@ -139,8 +141,8 @@ const CategoryFixturePage = () => {
       ? 'Close registration before generating fixtures.'
       : !hasEnoughEntries
       ? category.eventType === 'SINGLES'
-        ? 'At least 2 participants are required to generate fixtures.'
-        : 'At least 2 teams are required to generate fixtures.'
+        ? `At least ${minimumEntries} participants are required to generate fixtures.`
+        : `At least ${minimumEntries} teams are required to generate fixtures.`
       : null
   const fixtureGenerationControl = canManageFixture && !fixture && (
     <div className="mb-4">

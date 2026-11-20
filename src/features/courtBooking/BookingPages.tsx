@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api/apiClient'
-import { bookingApi, bookingKey, useBookingQuery, type Booking, type Checkout, type Quote, type Selection, type Venue } from './api'
+import { bookingApi, bookingKey, useBookingQuery, type Booking, type BookingPaymentOption, type Checkout, type Quote, type Selection, type Venue } from './api'
 import './booking.css'
 
 const currency = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 })
@@ -170,6 +170,10 @@ export function VenueBookingPage() {
     }
   }
   const busy = quote.isPending || create.isPending
+  const updatePayment = (paymentOption: BookingPaymentOption) => {
+    if (!checkout || checkout.request.paymentOption === paymentOption) return
+    setCheckout({ ...checkout, request: { ...checkout.request, paymentOption, idempotencyKey: crypto.randomUUID() } })
+  }
   return <BookingPage title={venue?.name ?? 'Court availability'}>
     <Link className="court-back" to="/player/courts">← All courts</Link>
     {!!venue && <div className="court-panel">
@@ -204,10 +208,16 @@ export function VenueBookingPage() {
       <h2>Review booking</h2>
       <p>{checkout.quote.booker.name} · {dateLabel(date)} · {timeLabel(start)}–{timeLabel(end)} IST</p>
       <p>Available court: {checkout.quote.court.name}</p>
-      <p>Pay at court <strong>{money(checkout.quote.total)}</strong></p>
+      <p>Total <strong>{money(checkout.quote.total)}</strong></p>
+      {checkout.quote.testPayments && checkout.quote.onlinePaymentsAvailable ? <label>Payment option
+        <select value={checkout.request.paymentOption} disabled={busy || create.isError} onChange={event => updatePayment(event.target.value as BookingPaymentOption)}>
+          <option value="PAY_AT_COURT">Pay at court</option><option value="FULL_ONLINE">Full test payment</option><option value="ADVANCE_30">30% test advance</option>
+        </select>
+      </label> : <p>Pay at court</p>}
+      {checkout.request.paymentOption === 'ADVANCE_30' && checkout.quote.advance && <p>Test advance {money(checkout.quote.advance)}</p>}
       <p>{Date.parse(checkout.quote.cancelUntil) <= Date.now() ? 'Cancellation is closed for this slot.' : 'Cancellation is available until five hours before the slot starts.'} Payments are non-refundable.</p>
       <div className="court-actions">
-        <button className="court-primary" disabled={busy} onClick={() => void confirm()}>{create.isPending ? 'Confirming…' : 'Confirm booking'}</button>
+        <button className="court-primary" disabled={busy} onClick={() => void confirm()}>{create.isPending ? 'Confirming…' : checkout.request.paymentOption === 'PAY_AT_COURT' ? 'Confirm booking' : 'Start test checkout'}</button>
         <button className="court-outline" disabled={busy} onClick={resetReview}>Change slot</button>
       </div>
     </section>}
@@ -242,6 +252,14 @@ export function BookingDetailsPage() {
   const client = useQueryClient()
   const [confirmCancel, setConfirmCancel] = useState(false)
   const details = useBookingQuery(['details', bookingId], signal => bookingApi.details(bookingId, signal))
+  const awaitingPayment = details.data?.status === 'PENDING' && details.data.paymentOption !== 'PAY_AT_COURT'
+  const capabilities = useBookingQuery(['checkout-capabilities', awaitingPayment], signal =>
+    awaitingPayment ? bookingApi.venues('', {}, signal) : Promise.resolve(null),
+  )
+  const testPayment = useMutation({
+    mutationFn: (scenario: 'SUCCESS' | 'FAILURE') => bookingApi.testPayment(bookingId, scenario),
+    onSuccess: () => client.invalidateQueries({ queryKey: bookingKey }),
+  })
   const cancel = useMutation({
     mutationFn: () => bookingApi.cancel(bookingId),
     onSuccess: async () => {
@@ -253,7 +271,16 @@ export function BookingDetailsPage() {
     <LoadState pending={details.isPending} error={details.error} retry={() => void details.refetch()} />
     {details.data && <article className="court-panel court-review">
       <BookingSummary booking={details.data} />
-      {details.data.canCancel && <button className="court-outline" disabled={confirmCancel} onClick={() => setConfirmCancel(true)}>Cancel booking</button>}
+      {awaitingPayment && capabilities.data?.testPayments && capabilities.data.onlinePaymentsAvailable && <section className="court-review" aria-label="Test checkout">
+        <p>Test payment. No real money is charged.</p>
+        {details.data.amountDueNow && <p>Due now {money(details.data.amountDueNow)}</p>}
+        <div className="court-actions">
+          <button className="court-primary" disabled={testPayment.isPending || cancel.isPending} onClick={() => testPayment.mutate('SUCCESS')}>Simulate payment</button>
+          <button className="court-outline" disabled={testPayment.isPending || cancel.isPending} onClick={() => testPayment.mutate('FAILURE')}>Simulate failure</button>
+        </div>
+        {testPayment.error && <p role="alert">{errorMessage(testPayment.error)}</p>}
+      </section>}
+      {(details.data.canCancel || awaitingPayment) && <button className="court-outline" disabled={confirmCancel} onClick={() => setConfirmCancel(true)}>Cancel booking</button>}
       {confirmCancel && <section className="court-review" aria-label="Confirm cancellation">
         <p>This releases your slot. Payments are non-refundable.</p>
         <div className="court-actions">

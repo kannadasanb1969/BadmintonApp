@@ -1,4 +1,6 @@
-export type RegistrationStatus = 'REGISTERED' | 'CANCELLED';
+export type RegistrationStatus = 'REGISTERED' | 'CANCELLED' | 'PENDING' | 'REJECTED' | 'CONFIRMED';
+
+export const isConfirmedRegistration = (status: RegistrationStatus) => status === 'REGISTERED' || status === 'CONFIRMED'
 
 export interface Registration {
   id: string; // internal ID
@@ -13,6 +15,9 @@ export interface Registration {
   eventType: 'SINGLES' | 'DOUBLES'; // from category
   status: RegistrationStatus;
   registeredAt: string; // ISO timestamp
+  reviewStatus?: string;
+  partnerResponseStatus?: string;
+  paymentStatus?: string;
   cancelledAt?: string; // ISO timestamp, optional
 
   // Optional fields for DOUBLES registrations

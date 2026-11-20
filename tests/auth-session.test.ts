@@ -115,6 +115,10 @@ assert.deepEqual(authCalls, [
   { url: '/api/auth/verify-otp', body: { mobile: '+919999999999', otp: '12345', role: 'ORGANIZER' }, authorization: undefined },
 ])
 
+const ownerLogin = await verifyOtpLogin(organizer.mobile, '12345')
+assert.equal(ownerLogin.user.role, 'ORGANIZER')
+assert.deepEqual(authCalls.at(-1)?.body, { mobile: '+919999999999', otp: '12345' })
+
 useAuthStore.getState().login(login.user, login.accessToken, login.refreshToken)
 let refreshes = 0
 apiClient.defaults.adapter = async config => {

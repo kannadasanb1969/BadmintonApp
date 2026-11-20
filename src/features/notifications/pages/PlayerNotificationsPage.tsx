@@ -1,9 +1,10 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { notificationRoute } from '../services/notificationRoutes'
+import { BrowserNotificationButton } from './BrowserNotifications'
 import { useAuthStore } from '@/store/authStore'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 
 const PlayerNotificationsPage = () => {
-  const navigate = useNavigate()
   const user = useAuthStore(state => state.user)
   const { notifications: userNotifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
 
@@ -20,6 +21,7 @@ const PlayerNotificationsPage = () => {
       <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
         <h1 className="text-2xl font-bold">Notifications</h1>
         <div className="flex space-x-3">
+          <BrowserNotificationButton />
           <span className="text-sm text-gray-500">
             Unread: {unreadCount}
           </span>
@@ -39,7 +41,7 @@ const PlayerNotificationsPage = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {userNotifications.map(notification => (
+          {userNotifications.map(notification => { const destination = notificationRoute(notification.link); return (
             <div
               key={notification.id}
               className={`p-4 border rounded-lg ${notification.isRead ? 'bg-white' : 'bg-blue-50'} border-l-4 ${notification.isRead ? 'border-gray-300' : 'border-blue-500'}`}
@@ -52,15 +54,15 @@ const PlayerNotificationsPage = () => {
                   <p className={notification.isRead ? 'text-gray-600' : 'text-gray-800'} mt-1>
                     {notification.message}
                   </p>
-                  {notification.link && (
+                  {destination && (
                     <div className="mt-2">
-                      <a
-                        href={notification.link}
+                      <Link
+                        to={destination}
                         onClick={() => { if (!notification.isRead) void markAsRead(notification.id) }}
                         className="text-sm text-blue-600 hover:text-blue-800 underline"
                       >
                         View Details
-                      </a>
+                      </Link>
                     </div>
                   )}
                   <div className="mt-2 text-xs text-gray-500">
@@ -78,7 +80,7 @@ const PlayerNotificationsPage = () => {
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </div>
