@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { isExplicitMockApiMode } from '@/api/apiClient'
+import apiClient, { isExplicitMockApiMode, webApiBaseUrl, webApiPath } from '@/api/apiClient'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationStore } from '../services/notificationStore'
 import { notificationApiService } from '../services/notificationApiService'
 import { notificationRoute } from '../services/notificationRoutes'
 
 const preferenceKey = 'smash-karo-browser-alerts'
+const pushKey = 'smash-karo-web-push'
+const publicKey = import.meta.env.VITE_WEB_VAPID_PUBLIC_KEY as string | undefined
+const webPushEnabled = Boolean(webApiBaseUrl && publicKey) && !isExplicitMockApiMode
+const pushPath = webApiPath + '/push/subscriptions'
+const pushConfig = { baseURL: webApiBaseUrl }
+
+function savedPush(): { userId: string; id: string } | null {
+  try { return JSON.parse(localStorage.getItem(pushKey) ?? 'null') } catch { return null }
+}
+
 const changed = 'smash-karo-browser-alerts-changed'
 const supported = () => typeof Notification !== 'undefined' && Boolean(navigator.serviceWorker)
 const enabled = () => {
@@ -14,30 +24,74 @@ const enabled = () => {
 }
 
 export function BrowserNotificationButton() {
-  const [on, setOn] = useState(enabled)
+  const userId = useAuthStore(state => state.user?.id)
+  const [on, setOn] = useState(() => webPushEnabled ? savedPush()?.userId === userId && Boolean(userId) : enabled())
   const [error, setError] = useState('')
-  if (!supported()) return null
+  const [busy, setBusy] = useState(false)
+  if (!supported() || webPushEnabled && !('PushManager' in window)) return null
   const toggle = async () => {
     setError('')
+    setBusy(true)
     try {
-      if (!on) {
-        if (await Notification.requestPermission() !== 'granted') throw new Error('Enable notification permission in your browser to use alerts.')
+      if (!on && await Notification.requestPermission() !== 'granted') {
+        throw new Error('Enable notification permission in your browser to use alerts.')
+      }
+      if (webPushEnabled && userId && publicKey) {
+        await navigator.serviceWorker.register('/notification-worker.js')
+        const registration = await navigator.serviceWorker.ready
+        if (useAuthStore.getState().user?.id !== userId) return
+        let browserSubscription = await registration.pushManager.getSubscription()
+        const saved = savedPush()
+        if (on) {
+          if (saved?.userId === userId) {
+            await apiClient.delete(pushPath + '/' + encodeURIComponent(saved.id), pushConfig)
+          }
+          await browserSubscription?.unsubscribe()
+          localStorage.removeItem(pushKey)
+        } else {
+          if (saved?.userId !== userId && browserSubscription) {
+            await browserSubscription.unsubscribe()
+            browserSubscription = null
+          }
+          browserSubscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey })
+          const { data } = await apiClient.post<{ subscriptionId: string }>(pushPath, browserSubscription.toJSON(), pushConfig)
+          if (useAuthStore.getState().user?.id !== userId) {
+            await browserSubscription.unsubscribe()
+            return
+          }
+          localStorage.setItem(pushKey, JSON.stringify({ userId, id: data.subscriptionId }))
+        }
+      } else if (!on) {
         await navigator.serviceWorker.register('/notification-worker.js')
       }
       localStorage.setItem(preferenceKey, on ? 'off' : 'on')
       setOn(!on)
       window.dispatchEvent(new Event(changed))
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to enable browser alerts.') }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to update browser alerts.') }
+    finally { setBusy(false) }
   }
   return <div>
-    <button className="rounded border border-emerald-700 px-2 py-1 text-sm text-emerald-900" onClick={() => void toggle()}>{on ? 'Turn off browser alerts' : 'Enable browser alerts'}</button>
-    <p className="text-xs text-slate-500">Alerts while this web app is open.</p>
+    <button className="rounded border border-emerald-700 px-2 py-1 text-sm text-emerald-900" disabled={busy} onClick={() => void toggle()}>{on ? 'Turn off browser alerts' : 'Enable browser alerts'}</button>
+    <p className="text-xs text-slate-500">{webPushEnabled ? 'Receive alerts when this tab is closed.' : 'Alerts while this web app is open.'}</p>
     {error && <p role="alert">{error}</p>}
   </div>
 }
 
 export function BrowserNotificationSync() {
   const userId = useAuthStore(state => state.user?.id)
+  const hasHydrated = useAuthStore(state => state.hasHydrated)
+  useEffect(() => {
+    if (!webPushEnabled || !hasHydrated) return
+    const saved = savedPush()
+    if (!saved || saved.userId === userId) return
+    localStorage.removeItem(pushKey)
+    localStorage.removeItem(preferenceKey)
+    void navigator.serviceWorker?.getRegistration('/').then(async registration => {
+      const subscription = await registration?.pushManager.getSubscription()
+      await subscription?.unsubscribe()
+      for (const notification of await registration?.getNotifications() ?? []) notification.close()
+    }).catch(() => undefined)
+  }, [hasHydrated, userId])
   const notifications = useNotificationStore(state => state.notifications)
   const [on, setOn] = useState(enabled)
   const [readyUser, setReadyUser] = useState<string>()
@@ -66,7 +120,7 @@ export function BrowserNotificationSync() {
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh) }
   }, [userId])
   useEffect(() => {
-    if (!on || !userId || readyUser !== userId) {
+    if (webPushEnabled || !on || !userId || readyUser !== userId) {
       previous.current = { ids: new Set() }
       return
     }

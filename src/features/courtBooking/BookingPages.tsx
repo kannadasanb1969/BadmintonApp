@@ -1,8 +1,9 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/apiClient'
 import { bookingApi, bookingKey, useBookingQuery, type Booking, type BookingPaymentOption, type Checkout, type Quote, type Selection, type Venue } from './api'
+import { openTestCheckout, webCheckoutApi, webCheckoutEnabled } from './webCheckout'
 import './booking.css'
 
 const currency = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 })
@@ -128,7 +129,15 @@ export function VenueBookingPage() {
   const upcomingDays = month.data?.days.filter(item => item.date >= todayInIndia()).slice(0, 7) ?? []
   const validSlot = Boolean(start && end && ends.includes(end))
   const quote = useMutation({ mutationFn: bookingApi.quote })
-  const create = useMutation({ mutationFn: bookingApi.create })
+  const create = useMutation({
+    mutationFn: async (input: Checkout) => {
+      if (webCheckoutEnabled && input.paymentOption !== 'PAY_AT_COURT') {
+        const { booking, checkoutId } = await webCheckoutApi.start(input)
+        return { booking, checkoutId }
+      }
+      return { booking: await bookingApi.create(input), checkoutId: null }
+    },
+  })
   const resetReview = () => { setCheckout(null); setError('') }
   const chooseDate = (value: string) => {
     if (!value || value < todayInIndia()) return
@@ -154,9 +163,9 @@ export function VenueBookingPage() {
     submitted.current = true
     setError('')
     try {
-      const booking = await create.mutateAsync(checkout.request)
+      const { booking, checkoutId } = await create.mutateAsync(checkout.request)
       void client.invalidateQueries({ queryKey: bookingKey })
-      navigate(`/player/court-bookings/${encodeURIComponent(booking.id)}`)
+      navigate(`/player/court-bookings/${encodeURIComponent(booking.id)}${checkoutId ? `?webCheckout=${encodeURIComponent(checkoutId)}` : ''}`)
     } catch (cause) {
       // If the response is lost, keep the same checkout key so a retry recovers the original booking.
       if (cause instanceof ApiError && cause.status === 409) {
@@ -209,7 +218,7 @@ export function VenueBookingPage() {
       <p>{checkout.quote.booker.name} · {dateLabel(date)} · {timeLabel(start)}–{timeLabel(end)} IST</p>
       <p>Available court: {checkout.quote.court.name}</p>
       <p>Total <strong>{money(checkout.quote.total)}</strong></p>
-      {checkout.quote.testPayments && checkout.quote.onlinePaymentsAvailable ? <label>Payment option
+      {(webCheckoutEnabled || checkout.quote.testPayments && checkout.quote.onlinePaymentsAvailable) ? <label>Payment option
         <select value={checkout.request.paymentOption} disabled={busy || create.isError} onChange={event => updatePayment(event.target.value as BookingPaymentOption)}>
           <option value="PAY_AT_COURT">Pay at court</option><option value="FULL_ONLINE">Full test payment</option><option value="ADVANCE_30">30% test advance</option>
         </select>
@@ -249,6 +258,8 @@ export function BookingHistoryPage() {
 
 export function BookingDetailsPage() {
   const { bookingId = '' } = useParams()
+  const [params] = useSearchParams()
+  const webCheckout = webCheckoutEnabled ? params.get('webCheckout') ?? webCheckoutApi.savedCheckout(bookingId) : null
   const client = useQueryClient()
   const [confirmCancel, setConfirmCancel] = useState(false)
   const details = useBookingQuery(['details', bookingId], signal => bookingApi.details(bookingId, signal))
@@ -271,7 +282,8 @@ export function BookingDetailsPage() {
     <LoadState pending={details.isPending} error={details.error} retry={() => void details.refetch()} />
     {details.data && <article className="court-panel court-review">
       <BookingSummary booking={details.data} />
-      {awaitingPayment && capabilities.data?.testPayments && capabilities.data.onlinePaymentsAvailable && <section className="court-review" aria-label="Test checkout">
+      {awaitingPayment && webCheckout && <WebTestPayment checkoutId={webCheckout} bookingId={bookingId} />}
+      {awaitingPayment && !webCheckout && !webCheckoutEnabled && capabilities.data?.testPayments && capabilities.data.onlinePaymentsAvailable && <section className="court-review" aria-label="Test checkout">
         <p>Test payment. No real money is charged.</p>
         {details.data.amountDueNow && <p>Due now {money(details.data.amountDueNow)}</p>}
         <div className="court-actions">
@@ -280,7 +292,7 @@ export function BookingDetailsPage() {
         </div>
         {testPayment.error && <p role="alert">{errorMessage(testPayment.error)}</p>}
       </section>}
-      {(details.data.canCancel || awaitingPayment) && <button className="court-outline" disabled={confirmCancel} onClick={() => setConfirmCancel(true)}>Cancel booking</button>}
+      {(details.data.canCancel || awaitingPayment && !webCheckout) && <button className="court-outline" disabled={confirmCancel} onClick={() => setConfirmCancel(true)}>Cancel booking</button>}
       {confirmCancel && <section className="court-review" aria-label="Confirm cancellation">
         <p>This releases your slot. Payments are non-refundable.</p>
         <div className="court-actions">
@@ -291,4 +303,37 @@ export function BookingDetailsPage() {
       {cancel.error && <p role="alert">{errorMessage(cancel.error)}</p>}
     </article>}
   </BookingPage>
+}
+
+function WebTestPayment({ checkoutId, bookingId }: { checkoutId: string; bookingId: string }) {
+  const client = useQueryClient()
+  const checkout = useBookingQuery(['web-checkout', checkoutId], signal => webCheckoutApi.status(checkoutId, signal))
+  const checkoutData = checkout.data?.booking.id === bookingId ? checkout.data : undefined
+  const refresh = () => client.invalidateQueries({ queryKey: bookingKey })
+  const action = useMutation({
+    mutationFn: async (release: boolean) => {
+      if (!checkoutData) return
+      if (release) return webCheckoutApi.release(checkoutId)
+      if (checkoutData.paymentStatus === 'CAPTURED') {
+        await webCheckoutApi.verify(checkoutId)
+      } else if (checkoutData.order) {
+        const proof = await openTestCheckout(checkoutData.order)
+        if (proof) await webCheckoutApi.verify(checkoutId, proof)
+      }
+    },
+    onSettled: refresh,
+  })
+  return <section className="court-review" aria-label="Razorpay test checkout">
+    <p>Razorpay test mode. No real money is charged.</p>
+    <LoadState pending={checkout.isPending} error={checkout.error} retry={() => void checkout.refetch()} />
+    {checkout.data && !checkoutData && <p role="alert">This checkout belongs to a different booking.</p>}
+    {checkoutData?.booking.status === 'PENDING' && <div className="court-actions">
+      <button className="court-primary" disabled={action.isPending || !checkoutData.order && checkoutData.paymentStatus !== 'CAPTURED'} onClick={() => action.mutate(false)}>
+        {checkoutData.paymentStatus === 'CAPTURED' ? 'Confirm test booking' : 'Pay with Razorpay test mode'}
+      </button>
+      <button className="court-outline" disabled={action.isPending || checkoutData.paymentStatus === 'CAPTURED'} onClick={() => action.mutate(true)}>Release hold</button>
+      <button className="court-outline" disabled={action.isPending} onClick={() => void checkout.refetch()}>Refresh test payment status</button>
+    </div>}
+    {action.error && <p role="alert">{errorMessage(action.error)}</p>}
+  </section>
 }

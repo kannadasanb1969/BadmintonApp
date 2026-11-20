@@ -11,3 +11,16 @@ self.addEventListener('notificationclick', event => {
     return self.clients.openWindow(target.href)
   })())
 })
+
+self.addEventListener('push', event => {
+  let payload
+  try { payload = event.data?.json() } catch { return }
+  if (typeof payload?.id !== 'string') return
+  const inbox = { PLAYER: 'player', OWNER: 'owner', ORGANIZER: 'organizer', ADMIN: 'admin' }[payload.role]
+  if (!inbox) return
+  event.waitUntil(self.registration.showNotification('Smash Karo', {
+    body: 'Open Smash Karo to view your latest alert.',
+    tag: payload.id,
+    data: { destination: '/' + inbox + '/notifications' },
+  }))
+})

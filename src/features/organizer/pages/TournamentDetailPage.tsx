@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { tournamentService } from '@/features/tournaments/services/tournamentService';
-import { Tournament } from '@/features/tournaments/types/tournament.types';
+import { webTournamentApi, webTournamentEnabled } from '@/features/tournaments/services/webTournamentApi';
+import { Tournament, TournamentCategory } from '@/features/tournaments/types/tournament.types';
 import { canSubmitForApproval, displayRegistrationCount, formatDateDisplay, formatTimeDisplay, getStatusLabel } from '@/features/tournaments/utils/tournamentHelpers';
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore';
 import { useAuthStore } from '@/store/authStore';
@@ -203,8 +205,8 @@ const TournamentDetailPage = () => {
           <div className="mb-6">
             <h2 className="text-lg font-medium text-gray-700 mb-2">Categories</h2>
             <div className="space-y-4">
-              {tournament.categories.map((category, index) => (
-                <div key={index} className="border p-4 rounded bg-gray-50">
+              {tournament.categories.map(category => (
+                <div key={category.id} className="border p-4 rounded bg-gray-50">
                   <h3 className="font-medium mb-2">{category.name}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -232,6 +234,17 @@ const TournamentDetailPage = () => {
                       <p>{category.pureBeginnerOnly ? 'Yes' : 'No'}</p>
                     </div>
                   </div>
+                  {webTournamentEnabled && ['DRAFT', 'PENDING_ADMIN_APPROVAL'].includes(tournament.status) && (
+                    <WebCategoryControls
+                      tournamentId={tournament.id}
+                      category={category}
+                      canRemove={tournament.categories.length > 1}
+                      onUpdate={async () => {
+                        const updated = await tournamentService.getTournamentById(tournament.id);
+                        if (updated) setTournament(updated);
+                      }}
+                    />
+                  )}
                   {category.additionalRuleNotes && (
                     <div className="mt-3">
                       <p className="font-medium mb-1">Additional Rule Notes</p>
@@ -303,3 +316,43 @@ const TournamentDetailPage = () => {
 };
 
 export default TournamentDetailPage;
+
+function WebCategoryControls({ tournamentId, category, canRemove, onUpdate }: {
+  tournamentId: string;
+  category: TournamentCategory;
+  canRemove: boolean;
+  onUpdate: () => Promise<void>;
+}) {
+  const [minimum, setMinimum] = useState(String(category.minTeams ?? 2));
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const mutation = useMutation({
+    mutationFn: (action: 'save' | 'remove') => action === 'save'
+      ? webTournamentApi.saveMinimum(tournamentId, category.id, Number(minimum))
+      : webTournamentApi.removeCategory(tournamentId, category.id),
+    onSuccess: async () => {
+      setConfirmRemove(false);
+      await onUpdate();
+    },
+  });
+  return <div className="mt-4 space-y-2">
+    <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); mutation.mutate('save'); }}>
+      <label className="grid gap-1 text-sm font-semibold">
+        Minimum teams required
+        <input className="w-32 rounded border p-2" type="number" required min={2} max={category.maxTeams}
+          value={minimum} readOnly={mutation.isPending} onChange={event => setMinimum(event.target.value)} />
+      </label>
+      <button type="submit" disabled={mutation.isPending || confirmRemove || Number(minimum) === (category.minTeams ?? 2)}
+        className="rounded border px-3 py-2 text-sm font-semibold disabled:opacity-50">Save minimum</button>
+      {canRemove && !confirmRemove && <button type="button" disabled={mutation.isPending} onClick={() => setConfirmRemove(true)}
+        className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-800">Remove category</button>}
+    </form>
+    {confirmRemove && <div className="flex flex-wrap items-center gap-2">
+      <p>Remove {category.name} from this tournament?</p>
+      <button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate('remove')}
+        className="rounded bg-rose-700 px-3 py-2 text-sm text-white">Confirm removal</button>
+      <button type="button" disabled={mutation.isPending} onClick={() => setConfirmRemove(false)}
+        className="rounded border px-3 py-2 text-sm">Cancel</button>
+    </div>}
+    {mutation.error && <p role="alert" className="text-sm text-rose-800">{mutation.error.message}</p>}
+  </div>;
+}
