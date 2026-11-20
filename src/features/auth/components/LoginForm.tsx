@@ -76,7 +76,33 @@ const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
   return <div className={`reference-login-form-wrap ${adminMode ? 'reference-admin-mode' : ''}`}><form onSubmit={verify} className="reference-login-form">
     {adminMode && <button type="button" className="reference-admin-back" onClick={onBackToNormal} disabled={loading}>← Back to workspace login</button>}
     <div className="reference-field-group"><label htmlFor="mobile">Mobile Number</label><div className="reference-mobile-field"><strong>+91</strong><span className="reference-chevron">⌄</span><input id="mobile" type="tel" inputMode="numeric" autoComplete="tel" disabled={loading} value={mobile} onChange={(event) => { setMobile(event.target.value.replace(/\D/g, '')); resetOtp() }} maxLength={10} placeholder="Enter your mobile number" /></div></div>
-    {!adminMode && <div className="reference-role-group"><p>I'm here as a</p><div className="reference-role-list">{roles.map((item) => <label key={item.value} className="group relative cursor-pointer"><input type="radio" disabled={loading} value={item.value} checked={role === item.value} onChange={() => { setRole(item.value); resetOtp(); setError(null) }} className="peer sr-only" /><span className="reference-role-card"><img src={item.image} alt="" /><span className="reference-role-copy"><i className="reference-radio" /><span><strong>{item.label}</strong><small>{item.detail}</small></span></span><b className="reference-role-arrow">›</b></span></label>)}</div></div>}
+    {!adminMode && (
+      <fieldset className="reference-role-group">
+        <legend>I'm here as a</legend>
+        <div className="reference-role-list">
+          {roles.map((item) => (
+            <label key={item.value} className="relative cursor-pointer">
+              <input
+                type="radio"
+                name="workspace"
+                className="peer sr-only"
+                disabled={loading}
+                value={item.value}
+                checked={role === item.value}
+                onChange={() => { setRole(item.value); resetOtp(); setError(null) }}
+              />
+              <span className="reference-role-card">
+                <img src={item.image} alt="" />
+                <span className="reference-role-copy">
+                  <i className="reference-radio" aria-hidden="true" />
+                  <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    )}
     {otpRequested && <div className="reference-otp-panel"><label htmlFor="otp">{adminMode ? 'Admin Verification' : 'Enter five-digit OTP'}</label><input id="otp" type="text" disabled={loading} inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />{developmentHint && <p>{developmentHint}</p>}</div>}
     {!otpRequested ? <button type="button" onClick={request} disabled={loading} className="reference-request-button">{loading ? (adminMode ? 'Requesting Admin OTP...' : 'Requesting...') : (adminMode ? 'Request Admin OTP  →' : 'Request OTP  →')}</button> : <div className="space-y-3"><button type="submit" disabled={loading} className="reference-request-button">{loading ? 'Verifying...' : 'Verify OTP  →'}</button><button type="button" onClick={request} disabled={loading} className="reference-resend">Resend OTP</button></div>}
     {(error || sessionMessage) && <p role="alert" className="reference-login-error">{error || sessionMessage}</p>}
