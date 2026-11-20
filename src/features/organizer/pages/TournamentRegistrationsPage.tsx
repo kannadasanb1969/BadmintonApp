@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { queryClient } from '@/api/queryClient'
 import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -24,7 +25,11 @@ const TournamentRegistrationsPage = () => {
   const [closingCategory, setClosingCategory] = useState<string | null>(null)
   const currentUser = useAuthStore(state => state.user)
   const isOrganizer = Boolean(currentUser && (currentUser.role === 'ADMIN' || (currentUser.role === 'ORGANIZER' && tournament?.organizerId === currentUser.id)))
-  const fixtures = useQuery({ queryKey: ['organizer-registration-fixtures', tournamentId], queryFn: () => fixtureService.getFixtures(), enabled: isOrganizer })
+  const fixtures = useQuery({
+    queryKey: ['organizer-registration-fixtures', currentUser?.id, tournamentId],
+    queryFn: () => fixtureService.getFixtures(),
+    enabled: isOrganizer && tournament?.id === tournamentId,
+  }, queryClient)
 
   useEffect(() => {
     // Fetch tournament if not already loaded
@@ -39,7 +44,7 @@ const TournamentRegistrationsPage = () => {
     }
   }, [tournamentId])
 
-  if (tournamentLoading || !tournament) {
+  if (tournamentLoading || (!tournamentError && tournament?.id !== tournamentId)) {
     return (
       <div className="text-center py-8">
         Loading tournament details...
@@ -47,7 +52,7 @@ const TournamentRegistrationsPage = () => {
     )
   }
 
-  if (tournamentError) {
+  if (tournamentError || !tournament) {
     return (
       <div className="text-center py-8 text-red-500">
         Error loading tournament: {tournamentError}
