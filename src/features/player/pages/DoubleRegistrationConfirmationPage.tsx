@@ -1,3 +1,4 @@
+import { isExplicitMockApiMode } from '@/api/apiClient'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -73,6 +74,7 @@ const DoubleRegistrationConfirmationPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<boolean>(false)
   const [showPartnerAcceptButton, setShowPartnerAcceptButton] = useState<boolean>(false)
+  const [guestConsent, setGuestConsent] = useState(false)
   const [partnerAccepted, setPartnerAccepted] = useState<boolean>(false)
   const [currentPlayerEligibility, setCurrentPlayerEligibility] = useState<boolean | null>(null)
   const [partnerEligibility, setPartnerEligibility] = useState<boolean | null>(null)
@@ -312,7 +314,7 @@ const DoubleRegistrationConfirmationPage = () => {
       }
 
       // Check partner status
-      if (partnerType === 'FULL' && !partnerAccepted) {
+      if (isExplicitMockApiMode && partnerType === 'FULL' && !partnerAccepted) {
         throw new Error('Partner has not accepted the invitation')
       }
 
@@ -405,59 +407,17 @@ const DoubleRegistrationConfirmationPage = () => {
         throw new Error('Category is full')
       }
 
-      // All checks passed, proceed to create team and registration via service
-      const isGuest = partnerType === 'GUEST'
-      const partnerStatusValue = 'ACCEPTED' // We only proceed if partner is accepted (guest or simulated accept)
-
-      let partnerProfile: PlayerProfile | GuestPlayer | null = null
-      if (partnerType === 'FULL') {
-        partnerProfile = playerDirectoryStore.getProfileById(partnerId)
-      } else if (partnerType === 'GUEST') {
-        const guest = guestPlayerStore.getGuestById(partnerId)
-        if (!guest) {
-          throw new Error('Partner not found')
-        }
-        // Normalize guest data to match PlayerProfile shape for registration
-        partnerProfile = {
-          id: guest.id,
-          userId: '', // Guest doesn't have auth user ID
-          fullName: guest.fullName,
-          gender: guest.gender ?? undefined,
-          dob: guest.dob,
-          age: guest.age,
-          mobile: guest.mobile,
-          location: guest.location,
-          playingSince: guest.playingSince,
-          experienceYears: guest.experienceYears,
-          regularPlayer: guest.regularPlayer,
-          courtAcademy: guest.courtAcademy,
-          playerCode: guest.guestCode, // Use guestCode as playerCode for registration
-          profilePhoto: null, // Guest doesn't have profile photo
-          profileStatus: guest.profileStatus,
-          createdAt: guest.createdAt,
-          updatedAt: guest.updatedAt,
-        } as PlayerProfile
-      }
-
-      if (!partnerProfile) {
-        throw new Error('Partner not found')
-      }
-
+      const partnerProfile = partnerType === 'GUEST'
+        ? guestPlayerStore.getGuestById(partnerId)
+        : playerDirectoryStore.getProfileById(partnerId)
+      if (!partnerProfile) throw new Error('Partner not found')
       const registration = await registrationService.registerDoublesTeam(
-        tournamentId,
-        categoryId,
-        currentProfile!,
-        partnerProfile,
-        partnerStatusValue
+        tournamentId, categoryId, currentProfile!, partnerProfile,
+        partnerType === 'FULL' && !isExplicitMockApiMode ? 'PENDING_CONFIRMATION' : 'ACCEPTED', guestConsent,
       )
-
       setSuccess(true)
-      // Clear the draft store
       clearDraft()
-      // Navigate to registrations page after a short delay
-      setTimeout(() => {
-        navigate('/player/registrations')
-      }, 1500)
+      navigate('/player/registrations/' + encodeURIComponent(registration.id))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
@@ -706,7 +666,7 @@ const DoubleRegistrationConfirmationPage = () => {
         </h3>
         <p className="text-sm text-gray-500">
           {partnerType === 'FULL'
-            ? partnerAccepted || partnerStatus === 'ACCEPTED'
+            ? !isExplicitMockApiMode ? 'A partner invitation is sent when you submit.' : partnerAccepted || partnerStatus === 'ACCEPTED'
               ? 'Partner has accepted'
               : partnerStatus === 'PENDING_CONFIRMATION'
                 ? 'Waiting for partner to accept'
@@ -715,7 +675,7 @@ const DoubleRegistrationConfirmationPage = () => {
           </p>
       </div>
 
-      {showPartnerAcceptButton && !partnerAccepted && currentPlayerEligibility === true && partnerEligibility === true && (
+      {isExplicitMockApiMode && showPartnerAcceptButton && !partnerAccepted && currentPlayerEligibility === true && partnerEligibility === true && (
         <div className="mb-6">
           <button
             type="button"
@@ -726,6 +686,8 @@ const DoubleRegistrationConfirmationPage = () => {
           </button>
         </div>
       )}
+
+      {partnerType === 'GUEST' && <label className="flex items-center gap-2"><input type="checkbox" checked={guestConsent} onChange={event => setGuestConsent(event.target.checked)} /> Guest agreed to receive a WhatsApp invitation</label>}
 
       <div className="mt-8">
         <button
@@ -744,10 +706,10 @@ const DoubleRegistrationConfirmationPage = () => {
             success ||
             currentPlayerEligibility !== true ||
             partnerEligibility !== true ||
-            (partnerType === 'FULL' && !partnerAccepted)
+            (isExplicitMockApiMode && partnerType === 'FULL' && !partnerAccepted)
           }
         >
-          {isLoading ? 'Registering...' : success ? 'Registration Complete' : 'Confirm Team & Register'}
+          {isLoading ? 'Submitting…' : success ? 'Submitted' : partnerType === 'FULL' && !isExplicitMockApiMode ? 'Send partner invitation' : 'Submit registration'}
         </button>
       </div>
     </div>

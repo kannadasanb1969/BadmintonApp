@@ -1,3 +1,4 @@
+import { WorkspaceMenu } from '@/features/auth/components/WorkspaceMenu'
 import { Link, Outlet } from 'react-router-dom'
 import { logoutSession } from '@/api/apiClient'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
@@ -15,7 +16,7 @@ const AdminLayout = () => {
   return <div className="mobile-app-shell admin-shell">
     <MobileAppHeader brand="SmashPoint" section="Admin" homeTo="/admin/dashboard" notificationsTo="/admin/notifications" unreadCount={unreadCount} onLogout={logoutSession} />
     <div className="desktop-role-bar"><div><Link to="/admin/dashboard" className="desktop-role-brand"><span>🏸</span> SmashPoint <small>Admin</small></Link><nav><Link to="/admin/tournaments">Tournament queue</Link><Link to="/admin/notifications">Notifications</Link></nav></div><button type="button" onClick={logoutSession}>Logout</button></div>
-    <main className="mobile-app-content"><RolePageBack homeTo="/admin/dashboard" /><Outlet /></main>
+    <main className="mobile-app-content"><RolePageBack homeTo="/admin/dashboard" /><Outlet /><div className="mt-5"><WorkspaceMenu /></div></main>
     <MobileBottomNavigation items={navigation} />
   </div>
 }

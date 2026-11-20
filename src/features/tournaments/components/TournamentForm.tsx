@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { CityPicker, type DirectoryCity } from '@/features/location/CityPicker'
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   TournamentFormValues,
@@ -43,18 +44,9 @@ const TournamentForm = ({
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const isEditMode = !!tournamentId;
 
-  const [initialCategories, setInitialCategories] = useState<TournamentCategory[]>([
-    {
-      id: '', // Will be removed in form values
-      name: 'Singles',
-      eventType: 'SINGLES' as EventType,
-      medalistsAllowed: false,
-      openPlayersAllowed: false,
-      beginnerOnly: false,
-      pureBeginnerOnly: false,
-    }
-  ]);
-
+  const originalCategoryIds = useRef<string[]>([])
+  const inactiveCategories = useRef<Partial<Record<EventType, TournamentCategory>>>({})
+  const [selectedCity, setSelectedCity] = useState<DirectoryCity | null>(null)
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitForApprovalError, setSubmitForApprovalError] = useState<string | null>(null);
@@ -83,7 +75,7 @@ const TournamentForm = ({
       venueAddress: '',
       mapLink: '',
       format: 'KNOCKOUT' as TournamentFormat,
-      categories: initialCategories,
+      categories: [],
       generalRules: [],
     },
     mode: 'onBlur',
@@ -109,6 +101,9 @@ const TournamentForm = ({
               return;
             }
             // Convert tournament to form values
+            originalCategoryIds.current = data.categories.map(category => category.id)
+            inactiveCategories.current = {}
+            if (data.cityId && data.stateId && data.city && data.state) setSelectedCity({ cityId: data.cityId, stateId: data.stateId, city: data.city, state: data.state })
             const formValues = {
               name: data.name,
               description: data.description,
@@ -121,11 +116,14 @@ const TournamentForm = ({
               mapLink: data.mapLink || '',
               format: data.format,
               categories: data.categories.map((cat) => ({
+                id: cat.id,
                 name: cat.name,
                 eventType: cat.eventType,
                 minAge: cat.minAge,
                 maxAge: cat.maxAge,
+                minTeams: cat.minTeams,
                 maxTeams: cat.maxTeams,
+                genderEligibility: cat.genderEligibility,
                 medalistsAllowed: cat.medalistsAllowed,
                 openPlayersAllowed: cat.openPlayersAllowed,
                 beginnerOnly: cat.beginnerOnly,
@@ -133,6 +131,8 @@ const TournamentForm = ({
                 additionalRuleNotes: cat.additionalRuleNotes || undefined,
               })),
               generalRules: data.generalRules,
+              prizes: data.prizes, shuttle: data.shuttle, scoringFormat: data.scoringFormat,
+              organizerMobile: data.organizerMobile,
             };
             reset(formValues);
           } else {
@@ -155,14 +155,18 @@ const TournamentForm = ({
   // Watch for category changes to validate (optional, for live validation if desired)
   const categories = watch('categories');
 
-  useEffect(() => {
-    categories.forEach((category, index) => {
-      const generatedName = categoryNameForEventType(category.eventType)
-      if (generatedName && category.name !== generatedName) {
-        setValue(`categories.${index}.name`, generatedName)
-      }
-    })
-  }, [categories, setValue])
+  const toggleCategory = (eventType: EventType) => {
+    const current = getValues('categories')
+    const existing = current.find(category => category.eventType === eventType)
+    if (existing) inactiveCategories.current[eventType] = existing
+    const next = existing ? current.filter(category => category.eventType !== eventType) : [...current, inactiveCategories.current[eventType] ?? {
+      id: '', eventType, name: categoryNameForEventType(eventType), minTeams: 2,
+      medalistsAllowed: false, openPlayersAllowed: false, beginnerOnly: false, pureBeginnerOnly: false,
+    }]
+    setValue('categories', next, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const removedCategories = (items: TournamentFormValues['categories']) => originalCategoryIds.current.filter(id => !items.some(item => item.id === id))
 
   const updateCustomRule = (id: number, changes: Partial<{ text: string; enabled: boolean }>) => {
     const updatedRules = customRules.map(rule => rule.id === id ? { ...rule, ...changes } : rule);
@@ -201,9 +205,6 @@ const TournamentForm = ({
     if (!data.registrationCloseDate) {
       fieldErrors.registrationCloseDate = 'Registration close date is required';
     }
-    if (!data.registrationCloseTime) {
-      fieldErrors.registrationCloseTime = 'Registration close time is required';
-    }
     if (!data.venueName) {
       fieldErrors.venueName = 'Venue name is required';
     }
@@ -231,6 +232,12 @@ const TournamentForm = ({
             fieldErrors[`categories.${index}.minAge`] = 'Min age must be less than or equal to max age';
             fieldErrors[`categories.${index}.maxAge`] = 'Max age must be greater than or equal to min age';
           }
+        }
+        if (category.minTeams != null && (!Number.isInteger(category.minTeams) || category.minTeams < 2)) {
+          fieldErrors[`categories.${index}.minTeams`] = 'Enter a whole number of at least 2';
+        }
+        if (category.minTeams != null && category.maxTeams != null && category.minTeams > category.maxTeams) {
+          fieldErrors[`categories.${index}.minTeams`] = 'Minimum cannot exceed capacity';
         }
         // Validate maxTeams
         if (category.maxTeams !== undefined && category.maxTeams <= 0) {
@@ -265,10 +272,11 @@ const TournamentForm = ({
     try {
       setLoading(true);
       const normalizedData = {
-        ...data,
+        ...data, ...(selectedCity ?? {}), registrationCloseTime: '',
+        removedCategoryIds: removedCategories(data.categories),
         categories: data.categories.map((category) => ({
           ...category,
-          name: categoryNameForEventType(category.eventType),
+          name: category.name.trim() || categoryNameForEventType(category.eventType),
         })),
         generalRules: (Array.isArray(data.generalRules) ? data.generalRules : String(data.generalRules ?? '').split('\n')).map(rule => String(rule).trim()).filter(Boolean),
       } as TournamentFormValues;
@@ -333,11 +341,12 @@ const TournamentForm = ({
       setLoading(true);
 
       const formData = getValues();
+      if (!selectedCity) { setSubmitForApprovalError('Choose the tournament city before submitting.'); return }
       const data = {
-        ...formData,
+        ...formData, ...selectedCity, registrationCloseTime: '', removedCategoryIds: removedCategories(formData.categories),
         categories: formData.categories.map((category) => ({
           ...category,
-          name: categoryNameForEventType(category.eventType),
+          name: category.name.trim() || categoryNameForEventType(category.eventType),
         })),
       };
       const fieldErrors = validateForSubmission(data);
@@ -357,6 +366,7 @@ const TournamentForm = ({
 
       // The service returns the Worker-refreshed tournament after its status
       // transition, so the detail route receives the current approval state.
+      await tournamentService.updateTournament(tournamentId, data);
       const updated = await tournamentService.submitTournamentForApproval(tournamentId);
       if (onSubmitForApprovalSuccess) {
         onSubmitForApprovalSuccess(updated);
@@ -437,19 +447,12 @@ const TournamentForm = ({
             {errors.registrationCloseDate && <p className="text-sm text-red-600">{errors.registrationCloseDate.message}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Registration Close Time</label>
-            <input
-              {...register('registrationCloseTime')}
-              type="time"
-              className="tournament-date-picker w-full px-4 py-3 border rounded-xl"
-            />
-            {errors.registrationCloseTime && <p className="text-sm text-red-600">{errors.registrationCloseTime.message}</p>}
-          </div>
+          <p className="text-sm text-slate-600">Registration closes at the end of the selected day (IST).</p>
         </div></section>
 
         {/* Venue Info */}
         <section className="form-panel space-y-4"><div className="form-panel-heading"><span>03</span><div><h3>Court & format</h3><p>Tell players where and how the event will run.</p></div></div>
+          <CityPicker value={selectedCity} onChange={setSelectedCity} />
           <div>
             <label className="block text-sm font-medium mb-2">Venue Name</label>
             <input
@@ -503,43 +506,35 @@ const TournamentForm = ({
         {/* Categories */}
         <section className="form-panel space-y-4">
           <div className="form-panel-heading"><span>05</span><div><h3>Event categories & eligibility</h3><p>Name each event, choose its type, and set player eligibility.</p></div></div>
+          <div className="flex flex-wrap gap-2">
+            {(['SINGLES', 'DOUBLES'] as const).map(type => <button type="button" key={type} aria-pressed={categories.some(category => category.eventType === type)}
+              onClick={() => toggleCategory(type)} className="rounded-lg border px-3 py-2 font-semibold aria-pressed:bg-emerald-700 aria-pressed:text-white">
+              {categoryNameForEventType(type)}
+            </button>)}
+          </div>
           <div id="categories-container" className="space-y-3">
             {categories.map((category, index) => (
-              <div key={index} className="border rounded p-4 bg-gray-50">
+              <div key={category.id || category.eventType} className="border rounded p-4 bg-gray-50">
                 <div className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor={`category-event-type-${index}`} className="mb-2 block text-sm font-medium">
-                        Event Type <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        id={`category-event-type-${index}`}
-                        {...register(`categories.${index}.eventType`, {
-                          required: 'Event Type is required',
-                          validate: (value) => value === 'SINGLES' || value === 'DOUBLES' || "Event Type must be 'SINGLES' or 'DOUBLES'",
-                        })}
-                        className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="SINGLES">Singles</option>
-                        <option value="DOUBLES">Doubles</option>
-                      </select>
-                      {errors.categories?.[index]?.eventType && (
-                        <p className="mt-1 text-sm text-red-600">{errors.categories[index]?.eventType?.message}</p>
-                      )}
-                    </div>
+                    <label className="grid gap-1 text-sm font-medium">Category name
+                      <input {...register(`categories.${index}.name`)} className="w-full rounded border px-4 py-2" />
+                    </label>
                     <div>
                       <label htmlFor={`category-gender-eligibility-${index}`} className="mb-2 block text-sm font-medium">Player eligibility</label>
                       <select id={`category-gender-eligibility-${index}`} {...register(`categories.${index}.genderEligibility`)} className="w-full rounded border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="OPEN">Open to all</option><option value="WOMEN_ONLY">Women only</option><option value="MEN_ONLY">Men only</option></select>
                     </div>
                   </div>
 
-                  <div>
-                    <p className="mb-1 text-sm font-medium text-slate-600">Category</p>
-                    <p className="rounded border border-slate-200 bg-slate-100 px-4 py-2 font-semibold text-slate-800">
-                      {categoryNameForEventType(category.eventType) || 'Select an event type'}
-                    </p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="grid gap-1 text-sm">Minimum age<input type="number" min={1} className="rounded border px-3 py-2" {...register(`categories.${index}.minAge`, { setValueAs: value => value === '' ? undefined : Number(value) })} /></label>
+                    <label className="grid gap-1 text-sm">Maximum age<input type="number" min={1} className="rounded border px-3 py-2" {...register(`categories.${index}.maxAge`, { setValueAs: value => value === '' ? undefined : Number(value) })} /></label>
+                    <label className="grid gap-1 text-sm">Registration capacity<input type="number" min={1} className="rounded border px-3 py-2" {...register(`categories.${index}.maxTeams`, { setValueAs: value => value === '' ? undefined : Number(value) })} /></label>
                   </div>
-
+                  <label className="grid gap-1 text-sm font-medium">Minimum entries
+                    <input type="number" min={2} step={1} placeholder="2" className="rounded border px-3 py-2" {...register(`categories.${index}.minTeams`, { setValueAs: value => value === '' ? undefined : Number(value) })} />
+                    {errors.categories?.[index]?.minTeams && <span className="text-red-600">{errors.categories[index]?.minTeams?.message}</span>}
+                  </label>
                   <div className="flex items-center space-x-2">
                     <input
                       {...register(`categories.${index}.medalistsAllowed`)}

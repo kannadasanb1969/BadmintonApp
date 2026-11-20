@@ -17,6 +17,8 @@ export class ApiError extends Error {
 }
 
 export const apiBaseUrl = getApiBaseUrl()
+export const webApiBaseUrl = import.meta.env.VITE_WEB_API_BASE_URL?.replace(/\/+$/, '') as string | undefined
+export const webApiPath = '/api/web/v1'
 export const isExplicitMockApiMode = import.meta.env.VITE_API_MODE === 'mock'
 
 export const getCurrentAccessToken = (): string | null => {
@@ -113,7 +115,9 @@ export const logoutSession = () => {
 apiClient.interceptors.request.use(async (config: SessionRequest) => {
   const path = config.url?.split('?')[0].replace(/^\/api(?=\/)/, '') ?? ''
   if (publicAuthPaths.has(path)) return config
-  if (!path.startsWith('/') || path.startsWith('//') || config.baseURL !== apiBaseUrl) return config
+  const webRequest = Boolean(webApiBaseUrl) && config.baseURL === webApiBaseUrl &&
+    config.url?.startsWith(webApiPath + '/')
+  if (!path.startsWith('/') || path.startsWith('//') || (config.baseURL !== apiBaseUrl && !webRequest)) return config
 
   const { sessionRevision, refreshToken } = useAuthStore.getState()
   if (config.sessionRevision !== undefined && config.sessionRevision !== sessionRevision) {

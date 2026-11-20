@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 import { registrationService } from '@/features/registrations/services/registrationService'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -116,14 +117,14 @@ const PlayerRegistrationsView = ({ query = '', eventType = 'ALL' }: { query?: st
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500">{visibleRegistrations.length} Registrations</p>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">{visibleRegistrations.filter(item => item.status === 'REGISTERED').length} Active</span>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">{visibleRegistrations.filter(item => isConfirmedRegistration(item.status)).length} Active</span>
       </div>
       {visibleRegistrations.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-slate-500">No registrations match your search or event filter.</p>}
       <div className="space-y-4">
         {visibleRegistrations.map((registration) => {
           const tournament = tournamentMap.get(registration.tournamentId)
           const fixture = fixtures.find((item) => item.tournamentId === registration.tournamentId && item.categoryId === registration.categoryId)
-          const fixtureAvailable = registration.status === 'REGISTERED' && fixture?.status === 'PUBLISHED'
+          const fixtureAvailable = isConfirmedRegistration(registration.status) && fixture?.status === 'PUBLISHED'
 
           return (
             <article key={registration.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
@@ -132,7 +133,7 @@ const PlayerRegistrationsView = ({ query = '', eventType = 'ALL' }: { query?: st
                 <div>
                   {tournament ? (
                     <>
-                      <div className="mb-3 flex flex-wrap gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${registration.status === 'REGISTERED' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{registration.status === 'REGISTERED' ? 'CONFIRMED' : 'CANCELLED'}</span><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{registration.eventType}</span></div><h3 className="text-xl font-bold text-slate-900">
+                      <div className="mb-3 flex flex-wrap gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isConfirmedRegistration(registration.status) ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{isConfirmedRegistration(registration.status) ? 'CONFIRMED' : registration.status}</span><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{registration.eventType}</span></div><h3 className="text-xl font-bold text-slate-900">
                         {tournament.name}
                       </h3>
                       <p className="mt-2 text-sm font-medium text-slate-600">📅 {new Date(tournament.tournamentDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · 📍 {tournament.venueName}</p>
@@ -159,6 +160,7 @@ const PlayerRegistrationsView = ({ query = '', eventType = 'ALL' }: { query?: st
                 </div>
 
                 <div className="flex shrink-0 flex-col gap-2 sm:min-w-40">
+                  <button type="button" className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-900" onClick={() => navigate('/player/registrations/' + encodeURIComponent(registration.id))}>Registration details</button>
                   {registration.status !== 'CANCELLED' && (
                     <button
                       type="button"

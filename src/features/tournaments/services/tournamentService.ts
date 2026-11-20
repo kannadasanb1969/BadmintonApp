@@ -65,8 +65,10 @@ const workerPayload = (data: Partial<TournamentFormValues>, organizerId?: string
   ...data,
   categories: data.categories?.map((category) => ({
     ...category,
+    id: category.id || undefined,
     genderEligibility: category.genderEligibility === 'MEN_ONLY' ? 'MALE' : category.genderEligibility === 'WOMEN_ONLY' ? 'FEMALE' : 'ANY',
   })),
+  ...(data.registrationCloseDate ? { registrationCloseTime: data.registrationCloseTime || null } : {}),
   generalRules: data.generalRules,
   format: data.format === 'LEAGUE_KNOCKOUT' ? 'GROUP_KNOCKOUT' : data.format,
 })
@@ -78,6 +80,10 @@ const currentActor = (role: 'ORGANIZER' | 'ADMIN') => {
 }
 
 export const tournamentService = {
+  discover: async (params: Record<string, string | number | boolean | undefined>, signal?: AbortSignal) => {
+    const { data } = await apiClient.get<{ items: WorkerTournament[]; page: number; hasMore: boolean; total: number; cityReferenceUnavailable?: boolean }>('/api/tournaments/discovery', { params, signal })
+    return { ...data, items: (data.items ?? []).map(fromWorkerTournament) }
+  },
   getTournaments: async (): Promise<Tournament[]> => {
     if (isExplicitMockApiMode) return [...useTournamentStore.getState().tournaments]
     const response = (await apiClient.get<WorkerTournament[]>('/api/tournaments')).data
@@ -106,18 +112,7 @@ export const tournamentService = {
   updateTournament: async (id: string, data: Partial<TournamentFormValues>): Promise<Tournament> => {
     if (!isExplicitMockApiMode) {
       const actor = currentActor('ORGANIZER')
-      const existing = data.categories ? await tournamentService.getTournamentById(id) : null
-      const payloadData = existing && data.categories ? {
-        ...data,
-        // The form intentionally omits database category IDs. Retain them by
-        // position so a normal edit updates a category instead of duplicating it.
-        categories: data.categories.map((category, index) => ({
-          ...existing.categories[index],
-          ...category,
-          id: existing.categories[index]?.id,
-        })),
-      } : data
-      const tournament = fromWorkerTournament((await apiClient.put<WorkerTournament>(`/api/tournaments/${id}`, workerPayload(payloadData, actor.id))).data)
+      const tournament = fromWorkerTournament((await apiClient.put<WorkerTournament>(`/api/tournaments/${id}`, workerPayload(data, actor.id))).data)
       cacheTournament(tournament)
       return tournament
     }

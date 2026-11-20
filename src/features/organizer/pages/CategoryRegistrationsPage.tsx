@@ -1,3 +1,4 @@
+import { RegistrationReview } from './RegistrationReview'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -52,7 +53,7 @@ const CategoryRegistrationsPage = () => {
             setCategory(cat)
             if (cat.eventType === 'SINGLES') {
               const regs = (await registrationService.getTournamentRegistrations(tournamentId))
-                .filter(reg => reg.categoryId === categoryId && reg.status === 'REGISTERED')
+                .filter(reg => reg.categoryId === categoryId && (reg.status === 'REGISTERED' || reg.status === 'CONFIRMED'))
               setRegistrations(regs)
             } else {
               const confirmedTeams = (await teamService.getCategoryTeams(tournamentId, categoryId))
@@ -257,6 +258,7 @@ const CategoryRegistrationsPage = () => {
           </div>
         )}
 
+        <RegistrationReview tournamentId={tournamentId ?? ''} categoryId={categoryId ?? ''} />
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -420,6 +422,7 @@ const CategoryRegistrationsPage = () => {
           </div>
         )}
 
+        <RegistrationReview tournamentId={tournamentId ?? ''} categoryId={categoryId ?? ''} />
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

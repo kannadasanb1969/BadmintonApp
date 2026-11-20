@@ -1,4 +1,4 @@
-import { Registration } from '@/features/registrations/types/registration.types'
+import { isConfirmedRegistration, Registration } from '@/features/registrations/types/registration.types'
 import { PlayerProfile } from '@/features/player/types/player.types'
 import { GuestPlayer } from '@/features/player/types/guest.player.types'
 import { PartnerStatus } from '@/features/teams/types/team.types'
@@ -6,10 +6,11 @@ import apiClient, { isExplicitMockApiMode } from '@/api/apiClient'
 import { useAuthStore } from '@/store/authStore'
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
 import { tournamentService } from '@/features/tournaments/services/tournamentService'
+import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { usePlayerDirectoryStore } from '@/features/player/store/playerDirectoryStore'
 import { useGuestPlayerStore } from '@/features/player/store/guestPlayerStore'
 
-type WorkerRegistration = { id: string; registrationCode: string; tournamentId: string; categoryId: string; playerId: string; eventType: 'SINGLES' | 'DOUBLES'; status: Registration['status']; registeredAt: string; cancelledAt?: string; teamId?: string | null; partnerId?: string | null; partnerType?: 'PLAYER' | 'GUEST' | null }
+type WorkerRegistration = { id: string; registrationCode: string; tournamentId: string; categoryId: string; playerId: string; eventType: 'SINGLES' | 'DOUBLES'; status: Registration['status']; registeredAt: string; cancelledAt?: string; teamId?: string | null; partnerId?: string | null; partnerType?: 'PLAYER' | 'GUEST' | null; reviewStatus?: string; partnerResponseStatus?: string; paymentStatus?: string }
 type Partner = PlayerProfile | GuestPlayer
 
 const partnerType = (partner: Partner): 'PLAYER' | 'GUEST' => 'guestCode' in partner ? 'GUEST' : 'PLAYER'
@@ -40,15 +41,16 @@ export const registrationService = {
     const created = (await apiClient.post<WorkerRegistration>('/api/registrations', { tournamentId, categoryId, playerId: player.id, ...actorPayload(player) })).data
     const registration = await enrich(created); cache(registration); return registration
   },
-  registerDoublesTeam: async (tournamentId: string, categoryId: string, player: PlayerProfile, partner: Partner, status: PartnerStatus): Promise<Registration> => {
-    if (status !== 'ACCEPTED') throw new Error('Partner has not accepted the invitation')
+  registerDoublesTeam: async (tournamentId: string, categoryId: string, player: PlayerProfile, partner: Partner, status: PartnerStatus, guestWhatsAppConsent = false): Promise<Registration> => {
+    if (status !== 'ACCEPTED' && !(status === 'PENDING_CONFIRMATION' && partnerType(partner) === 'PLAYER')) throw new Error('Select an eligible partner')
     if (isExplicitMockApiMode) throw new Error('Use the Worker API for registration')
-    const created = (await apiClient.post<WorkerRegistration>('/api/registrations', { tournamentId, categoryId, playerId: player.id, partner: { id: partner.id, type: partnerType(partner) }, ...actorPayload(player) })).data
+    const created = (await apiClient.post<WorkerRegistration>('/api/registrations', { tournamentId, categoryId, playerId: player.id, partner: { id: partner.id, type: partnerType(partner) }, ...(partnerType(partner) === 'GUEST' ? { guestWhatsAppConsent } : {}), ...actorPayload(player) })).data
     const registration = await enrich(created); cache(registration); return registration
   },
   getPlayerRegistrations: async (playerId: string): Promise<Registration[]> => {
     if (isExplicitMockApiMode) return useRegistrationStore.getState().getPlayerRegistrations(playerId)
-    const rows = (await apiClient.get<WorkerRegistration[]>(`/api/registrations/player/${playerId}`)).data
+    const path = usePlayerProfileStore.getState().profile?.id === playerId ? '/api/registrations/me' : `/api/registrations/player/${encodeURIComponent(playerId)}`
+    const rows = (await apiClient.get<WorkerRegistration[]>(path)).data
     const registrations = await Promise.all((Array.isArray(rows) ? rows : []).map(enrich))
     useRegistrationStore.getState().replaceRegistrations(registrations); return registrations
   },
@@ -58,7 +60,7 @@ export const registrationService = {
     const registrations = await Promise.all((Array.isArray(rows) ? rows : []).map(enrich))
     useRegistrationStore.getState().replaceRegistrations(registrations); return registrations
   },
-  isPlayerRegistered: async (playerId: string, tournamentId: string, categoryId: string) => (await registrationService.getPlayerRegistrations(playerId)).some(item => item.tournamentId === tournamentId && item.categoryId === categoryId && item.status === 'REGISTERED'),
+  isPlayerRegistered: async (playerId: string, tournamentId: string, categoryId: string) => (await registrationService.getPlayerRegistrations(playerId)).some(item => item.tournamentId === tournamentId && item.categoryId === categoryId && isConfirmedRegistration(item.status)),
   cancelRegistration: async (registrationId: string): Promise<void> => {
     if (isExplicitMockApiMode) { useRegistrationStore.getState().cancelRegistration(registrationId); return }
     const profile = usePlayerDirectoryStore.getState().getProfileById(useRegistrationStore.getState().registrations.find(item => item.id === registrationId)?.playerId ?? '')

@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
@@ -74,7 +75,7 @@ const PlayerFixturesPage = () => {
 
   const playerFixtures = useMemo(() => {
     if (!profile) return []
-    const playerRegistrations = registrations.filter(registration => registration.playerId === profile.id && registration.status === 'REGISTERED')
+    const playerRegistrations = registrations.filter(registration => registration.playerId === profile.id && isConfirmedRegistration(registration.status))
     const playerTeams = teams.filter(team => team.status === 'CONFIRMED' && (team.player1Id === profile.id || team.player2Id === profile.id))
     return fixtures.filter(fixture => fixture.status === 'PUBLISHED' &&
       (!requestedFixtureId || fixture.id === requestedFixtureId) &&

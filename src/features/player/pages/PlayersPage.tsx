@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 
 import { refreshPlayerDirectory } from '@/features/player/services/playerProfileService'
@@ -51,7 +52,7 @@ const PlayersPage = () => {
               <article key={player.id} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 {player.profilePhoto ? <img src={player.profilePhoto} alt="" className="h-12 w-12 rounded-full object-cover" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-black text-emerald-700">{player.fullName.slice(0, 1).toUpperCase()}</div>}
                 <div className="min-w-0">
-                  <h2 className="truncate font-bold text-slate-900">{player.fullName}</h2>
+                  <h2 className="truncate font-bold text-slate-900"><Link to={'/player/players/' + encodeURIComponent(player.id)}>{player.fullName}</Link></h2>
                   <p className="text-sm font-semibold text-emerald-700">{player.playerCode}</p>
                   {(player.location || player.playingSince) && <p className="mt-1 truncate text-xs text-slate-500">{[player.location, player.playingSince ? `Playing since ${player.playingSince}` : null].filter(Boolean).join(' · ')}</p>}
                 </div>

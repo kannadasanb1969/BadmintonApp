@@ -1,3 +1,6 @@
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { queryClient } from '@/api/queryClient'
+import { PlayerLocationPicker, locationParams, useDiscoveryLocation } from '@/features/location/CityPicker'
 import PlayerRegistrationsView from '@/features/player/components/PlayerRegistrationsView'
 import { tournamentService } from '@/features/tournaments/services/tournamentService'
 import { filterPlayerTournaments, tournamentListStatus, TournamentListStatus } from '@/features/player/utils/tournamentListFilters'
@@ -29,8 +32,19 @@ const PlayerTournamentListPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   type TournamentView = TournamentListStatus | 'MY_REGISTRATIONS'
   const viewValues: Record<string, TournamentView> = { closed: 'CLOSED', completed: 'COMPLETED', registrations: 'MY_REGISTRATIONS', all: 'ALL' }
+  const [showLocation, setShowLocation] = useState(false)
+  const location = useDiscoveryLocation(state => state.location)
   const status = viewValues[searchParams.get('view') ?? ''] ?? 'OPEN'
   const isMyRegistrations = status === 'MY_REGISTRATIONS'
+  const nearby = useInfiniteQuery({
+    queryKey: ['nearby-tournaments', location, status, eventType, query],
+    queryFn: ({ pageParam, signal }) => tournamentService.discover({
+      ...(location ? locationParams(location) : {}), nearby: true, view: status,
+      q: query.trim() || undefined, eventType: eventType === 'ALL' ? undefined : eventType, page: pageParam, size: 20,
+    }, signal),
+    enabled: Boolean(location && !isMyRegistrations), initialPageParam: 1,
+    getNextPageParam: last => last.hasMore ? last.page + 1 : undefined, retry: false,
+  }, queryClient)
   const setStatus = (next: TournamentView) => {
     const params = new URLSearchParams(searchParams)
     if (next === 'OPEN') params.delete('view')
@@ -39,7 +53,7 @@ const PlayerTournamentListPage = () => {
   }
 
   useEffect(() => {
-    if (isMyRegistrations) return
+    if (isMyRegistrations || location) return
     let active = true
     let refreshing = false
     const refresh = async () => {
@@ -65,17 +79,18 @@ const PlayerTournamentListPage = () => {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
     }
-  }, [isMyRegistrations])
+  }, [isMyRegistrations, location])
 
-  const publishedTournaments = useMemo(() => filterPlayerTournaments(tournaments, results, query, eventType, isMyRegistrations ? 'ALL' : status),
+  const allPublishedTournaments = useMemo(() => filterPlayerTournaments(tournaments, results, query, eventType, isMyRegistrations ? 'ALL' : status),
     [tournaments, results, query, eventType, status])
+  const publishedTournaments = location ? nearby.data?.pages.flatMap(page => page.items) ?? [] : allPublishedTournaments
   const emptyMessage = { OPEN: 'No open registration tournaments found.', CLOSED: 'No registration-closed tournaments found.', COMPLETED: 'No completed tournaments found.', ALL: 'No matching tournaments found.', MY_REGISTRATIONS: 'No matching registrations found.' }
 
-  if (loading && !isMyRegistrations) {
+  if (loading && !location && !isMyRegistrations) {
     return <div className="text-center py-8">Loading tournaments...</div>
   }
 
-  if (error && !isMyRegistrations) {
+  if (error && !location && !isMyRegistrations) {
     return <div className="text-center py-8 text-red-500">Error loading tournaments: {error}</div>
   }
 
@@ -98,9 +113,13 @@ const PlayerTournamentListPage = () => {
           <option value="ALL">All tournaments</option>
         </select>
       </section>
+      {!isMyRegistrations && <details className="rounded-xl bg-emerald-50 p-3 text-emerald-950" onToggle={event => setShowLocation(event.currentTarget.open)}><summary className="cursor-pointer font-bold">Tournament location {location ? '· ' + ('city' in location ? location.city.city : 'Current location') : '· All locations'}</summary>{showLocation && <div className="mt-3"><PlayerLocationPicker /></div>}</details>}
+      {!isMyRegistrations && location && nearby.isLoading && <p role="status">Finding nearby tournaments…</p>}
+      {!isMyRegistrations && location && nearby.error && <p role="alert">Unable to load nearby tournaments. <button type="button" onClick={() => void nearby.refetch()}>Retry</button></p>}
+      {!isMyRegistrations && nearby.data?.pages[0]?.cityReferenceUnavailable && <p role="status">Showing events registered in this city.</p>}
       {isMyRegistrations ? <PlayerRegistrationsView query={query} eventType={eventType} /> : <>
       <div className="flex items-center justify-between"><h2 className="text-2xl font-black text-white">{publishedTournaments.length} events found</h2><span className="text-sm text-slate-400">Select an event to register</span></div>
-      {publishedTournaments.length === 0 && <div className="player-surface-card rounded-2xl border border-dashed py-14 text-center"><p className="text-lg font-bold text-white">{emptyMessage[status]}</p><p className="mt-2 text-sm text-slate-400">Try changing your search or event filters.</p></div>}
+      {publishedTournaments.length === 0 && (!location || (!nearby.isLoading && !nearby.error)) && <div className="player-surface-card rounded-2xl border border-dashed py-14 text-center"><p className="text-lg font-bold text-white">{emptyMessage[status]}</p><p className="mt-2 text-sm text-slate-400">Try changing your search or event filters.</p></div>}
       {resultsError && <p role="status" className="text-sm text-slate-500">Results are temporarily unavailable. You can still browse tournaments.</p>}
       <div className="space-y-4">
         {publishedTournaments.map((tournament, index) => {
@@ -116,7 +135,7 @@ const PlayerTournamentListPage = () => {
                 <h2 className="text-xl font-bold text-white">{tournament.name}</h2>
                 <p className="mt-2 text-sm text-slate-300">📍 {tournament.venueName} · {formatDateDisplay(tournament.tournamentDate)}</p>
                 {completed && <TournamentCardResults tournament={tournament} results={results} />}
-                <p className="mt-2 text-sm text-slate-400">Registration closes {formatDateDisplay(tournament.registrationCloseDate)} at {formatTimeDisplay(tournament.registrationCloseTime)}</p>
+                <p className="mt-2 text-sm text-slate-400">Registration closes {formatDateDisplay(tournament.registrationCloseDate)} {tournament.registrationCloseTime ? 'at ' + formatTimeDisplay(tournament.registrationCloseTime) : 'at the end of the day (IST)'}</p>
                 <div className="mt-3 flex flex-wrap gap-2"><span className="tournament-info-badge">♟ {displayRegistrationCount(tournament.registeredPlayerCount)} Players Registered</span>{tournament.categories.length > 0 && tournament.categories.every(category => category.eventType === 'DOUBLES') && displayRegistrationCount(tournament.registeredTeamCount) > 0 && <span className="tournament-team-badge">♧ {displayRegistrationCount(tournament.registeredTeamCount)} Teams</span>}</div>
               </div>
               <div className="shrink-0 sm:self-end">
@@ -131,6 +150,7 @@ const PlayerTournamentListPage = () => {
           </article>
         )})}
       </div>
+      {location && nearby.hasNextPage && <button className="rounded-lg bg-emerald-600 px-4 py-2 text-white" type="button" disabled={nearby.isFetchingNextPage} onClick={() => void nearby.fetchNextPage()}>More tournaments</button>}
       </>}
     </div>
   )

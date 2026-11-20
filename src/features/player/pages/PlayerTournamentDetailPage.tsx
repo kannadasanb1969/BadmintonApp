@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -135,7 +136,7 @@ const PlayerTournamentDetailPage = () => {
     return getPlayerRegistrations(profile.id).filter(
       (registration) =>
         registration.tournamentId === tournamentId &&
-        registration.status === 'REGISTERED'
+        isConfirmedRegistration(registration.status)
     )
   }, [
     hasProfile,
@@ -172,7 +173,7 @@ const PlayerTournamentDetailPage = () => {
           const currentRegistrations = tournamentRegistrations.filter(
             (registration) =>
               registration.categoryId === category.id &&
-              registration.status === 'REGISTERED'
+              isConfirmedRegistration(registration.status)
           ).length
 
           const eligibilityResult = await eligibilityService.check({
@@ -338,7 +339,7 @@ const PlayerTournamentDetailPage = () => {
     const alreadyRegistered = playerRegistrations.some(
       (registration) =>
         registration.categoryId === categoryId &&
-        registration.status === 'REGISTERED'
+        isConfirmedRegistration(registration.status)
     )
 
     if (alreadyRegistered) {
@@ -597,7 +598,7 @@ const PlayerTournamentDetailPage = () => {
                 playerRegistrations.some(
                   (registration) =>
                     registration.categoryId === category.id &&
-                    registration.status === 'REGISTERED'
+                    isConfirmedRegistration(registration.status)
                 )
               const hasActiveRegistration = isRegistered || Boolean(
                 eligibility?.reasons.some((reason) => reason.code === 'ALREADY_REGISTERED')

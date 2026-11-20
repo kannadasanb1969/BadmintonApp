@@ -20,9 +20,13 @@ export type Window = { startTime: string; endTime: string; hourlyRate: string }
 export type City = { stateId: string; cityId: string; state: string; city: string }
 type Location = { stateId?: string; cityId?: string; lat?: number; lng?: number }
 export type Selection = { venueId: string; bookingDate: string; startTime: string; endTime: string }
+export type BookingPaymentOption = 'PAY_AT_COURT' | 'FULL_ONLINE' | 'ADVANCE_30'
 export type Quote = {
   court: { name: string; academyName: string; hourlyRate: string; photos?: Photo[] }
   total: string
+  advance?: string
+  testPayments?: boolean
+  onlinePaymentsAvailable?: boolean
   booker: { name: string }
   cancelUntil: string
 }
@@ -35,9 +39,12 @@ export type Booking = {
   endTime: string
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED'
   canCancel: boolean
+  paymentOption?: BookingPaymentOption
+  amountDueNow?: string
+  holdExpiresAt?: string | null
   paymentSummary: { bookingAmount: string; totalPaid: string; balance: string }
 }
-export type Checkout = Selection & { quotedAmount: string; idempotencyKey: string; paymentOption: 'PAY_AT_COURT' }
+export type Checkout = Selection & { quotedAmount: string; idempotencyKey: string; paymentOption: BookingPaymentOption }
 
 export const bookingKey = ['court-booking'] as const
 const venuePath = (id: string) => '/api/player-venues/' + encodeURIComponent(id)
@@ -48,7 +55,7 @@ export const bookingApi = {
     return (await apiClient.get<{ popularCities?: City[] }>('/api/locations/status', { signal })).data.popularCities ?? []
   },
   async venues(search: string, location: Location, signal?: AbortSignal) {
-    const { data } = await apiClient.get<{ venues: Venue[]; cityReferenceUnavailable?: boolean }>('/api/player-venues', {
+    const { data } = await apiClient.get<{ venues: Venue[]; cityReferenceUnavailable?: boolean; testPayments?: boolean; onlinePaymentsAvailable?: boolean }>('/api/player-venues', {
       signal, params: { search, ...location, radiusKm: 50, nearby: true },
     })
     return data
@@ -74,6 +81,9 @@ export const bookingApi = {
   },
   async details(id: string, signal?: AbortSignal) {
     return (await apiClient.get<Booking>(bookingPath(id), { signal })).data
+  },
+  async testPayment(id: string, scenario: 'SUCCESS' | 'FAILURE') {
+    return (await apiClient.post<Booking>(bookingPath(id) + '/test-payment', { scenario })).data
   },
   async cancel(id: string) {
     return (await apiClient.post<Booking>(bookingPath(id) + '/cancel')).data

@@ -7,7 +7,8 @@ import { useTeamStore } from '@/features/teams/store/teamStore';
 import { useRegistrationStore } from '@/features/registrations/store/registrationStore';
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore';
 import { notificationService } from '@/features/notifications/services/notificationService';
-import apiClient, { isExplicitMockApiMode } from '@/api/apiClient';
+import apiClient, { isExplicitMockApiMode, webApiBaseUrl } from '@/api/apiClient';
+import { webCategoryPath, webTournamentEnabled } from '@/features/tournaments/services/webTournamentApi';
 import { tournamentService } from '@/features/tournaments/services/tournamentService';
 import { refreshPlayerDirectory } from '@/features/player/services/playerProfileService';
 import { guestPlayerService } from '@/features/player/services/guestPlayerService';
@@ -263,12 +264,15 @@ export const fixtureService: FixtureService = {
    */
   generateFixture(organizerId: string, tournamentId: string, categoryId: string, format: TournamentFormat): Promise<Fixture> {
     if (!isExplicitMockApiMode) {
-      return apiClient.post<WorkerFixture>('/api/fixtures/generate', {
+      const path = webTournamentEnabled
+        ? webCategoryPath(tournamentId, categoryId) + '/fixtures'
+        : '/api/fixtures/generate'
+      return apiClient.post<WorkerFixture>(path, {
         tournamentId,
         categoryId,
         organizerUserId: organizerId,
         format: format === 'LEAGUE_KNOCKOUT' ? 'LEAGUE' : format,
-      }).then(async (response) => {
+      }, webTournamentEnabled ? { baseURL: webApiBaseUrl } : undefined).then(async (response) => {
         const fixture = await fromWorkerFixture(response.data, await fixtureParticipantDirectory());
         cacheFixture(fixture);
         return fixture;

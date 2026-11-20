@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 // After verifying the fix for doubles partner routing, ensuring navigation preserves categoryId
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -193,7 +194,7 @@ const PartnerChoicePage = () => {
     (registration) =>
       registration.tournamentId === tournamentId &&
       registration.categoryId === categoryId &&
-      registration.status === 'REGISTERED' &&
+      isConfirmedRegistration(registration.status) &&
       registration.playerId === profile.id
   )
 

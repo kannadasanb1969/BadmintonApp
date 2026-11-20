@@ -40,6 +40,14 @@ import AdminNotificationsPage from '@/features/notifications/pages/AdminNotifica
 
 const router = createBrowserRouter([
   {
+    path: '/owner/*',
+    hydrateFallbackElement: <p role="status">Loading Owner workspace…</p>,
+    lazy: async () => {
+      const { default: OwnerWorkspace } = await import('@/features/owner/OwnerWorkspace')
+      return { element: <ProtectedRoute><OwnerWorkspace /></ProtectedRoute> }
+    },
+  },
+  {
     path: '/',
     element: <HomePage />
   },
@@ -65,6 +73,15 @@ const router = createBrowserRouter([
       { path: 'court-bookings', element: <BookingHistoryPage /> },
       { path: 'court-bookings/:bookingId', element: <BookingDetailsPage /> },
       { path: 'profile/edit', element: <PlayerProfilePage /> },
+      { path: 'connections', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).ConnectionsPage }) },
+      { path: 'players/:id', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).PublicPlayerPage }) },
+      { path: 'medals', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).MedalsPage }) },
+      { path: 'results', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).ResultsPage }) },
+      { path: 'partner-invitations/:id', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).PartnerInvitationPage }) },
+      { path: 'registrations/:id', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).RegistrationDetailsPage }) },
+      { path: 'friendly-matches/:id/invite', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).FriendlyInvitePage }) },
+      { path: 'friendly-invitations/:id', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).FriendlyInvitationPage }) },
+      { path: 'matches/:id', lazy: async () => ({ Component: (await import('@/features/player/mobileParity/PlayerPages')).MatchViewerPage }) },
       // Player tournament routes
       {
         path: 'tournaments',

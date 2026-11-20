@@ -1,0 +1,63 @@
+.owner-workspace {
+  background: #edf5ef;
+  color: #142c21;
+  min-height: 100vh;
+  font-family: system-ui, sans-serif;
+}
+.owner-top, .owner-layout { max-width: 1280px; margin-inline: auto; padding: 16px clamp(12px, 4vw, 32px); }
+.owner-top, .owner-list-row, .owner-actions { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 12px; }
+.owner-actions { justify-content: flex-start; }
+.owner-top { border-bottom: 1px solid #ccded2; }
+.owner-brand { display: grid; color: #0a4c36; font-size: 1.25rem; text-decoration: none; }
+.owner-brand span { font-size: .85rem; color: #465c50; }
+.owner-layout { display: grid; grid-template-columns: minmax(145px, 190px) minmax(0, 1fr); gap: 22px; }
+.owner-sidebar nav, .owner-content, .owner-panel, .owner-flow, .owner-form fieldset { display: grid; gap: 12px; align-content: start; }
+.owner-sidebar nav { gap: 4px; }
+.owner-sidebar a { padding: 8px 10px; border-radius: 8px; color: #24523c; font-weight: 650; }
+.owner-sidebar a.active { background: #cce7d4; color: #0a4c36; }
+.owner-panel { background: #fff; border: 1px solid #d7e7db; border-radius: 14px; padding: clamp(12px, 3vw, 21px); }
+.owner-panel h2 { font-size: 1.35rem; font-weight: 750; }
+.owner-panel h3 { font-size: 1.1rem; font-weight: 700; }
+.owner-panel p { overflow-wrap: anywhere; }
+.owner-list-row { border-top: 1px solid #dce9e0; padding-block: 10px 2px; }
+.owner-fields, .owner-grid, .owner-gallery, .owner-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
+.owner-metrics > div { background: #eaf5ee; border-radius: 10px; padding: 12px; display: grid; }
+.owner-metrics strong { font-size: 1.25rem; }
+.owner-workspace label { display: grid; align-content: start; gap: 5px; font-weight: 650; }
+.owner-workspace label:has(input:is([type=radio], [type=checkbox])) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.owner-workspace :is(input:not([type=checkbox], [type=radio]), select, textarea) {
+  width: 100%; min-height: 40px; border: 1px solid #9eb9a8; border-radius: 8px; background: white; padding: 6px 9px; font-weight: 400;
+}
+.owner-workspace textarea { min-height: 75px; }
+.owner-primary, .owner-secondary {
+  display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 39px; padding: 6px 12px;
+  border: 1px solid #116345; border-radius: 8px; color: #0d533a; background: white; font-weight: 650; text-align: center; text-decoration: none;
+}
+.owner-primary { background: #116345; color: white; }
+.owner-workspace :focus-visible { outline: 2px solid #116345; outline-offset: 3px; }
+.owner-workspace :disabled { opacity: .62; cursor: not-allowed; }
+.owner-workspace summary { cursor: pointer; color: #116345; font-weight: 650; }
+.owner-workspace details[open] > summary { margin-bottom: 8px; }
+.owner-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.owner-form > p { margin-top: 6px; }
+.owner-error { color: #98352f; }
+.owner-weekdays { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.owner-gallery img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 7px; }
+.owner-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.owner-calendar button { width: 100%; display: grid; font-size: .8rem; padding: 3px; }
+.owner-calendar [aria-pressed=true] { background: #116345; color: white; }
+.owner-table-wrap { overflow-x: auto; }
+.owner-table-wrap table { width: 100%; text-align: left; white-space: nowrap; }
+.owner-table-wrap :is(th, td) { padding: 8px; border-bottom: 1px solid #dce9e0; }
+.owner-table-wrap a { text-decoration: underline; }
+@media (max-width: 680px) {
+  .owner-layout { grid-template-columns: 1fr; gap: 12px; }
+  .owner-sidebar nav { display: flex; flex-wrap: wrap; }
+  .owner-calendar small { font-size: .67rem; }
+}
+@media print {
+  .owner-no-print { display: none !important; }
+  .owner-workspace, .owner-panel { background: white; }
+  .owner-layout { display: block; padding: 0; }
+  .owner-panel { border: none; }
+}

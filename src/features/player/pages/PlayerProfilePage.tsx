@@ -1,3 +1,4 @@
+import { isConfirmedRegistration } from '@/features/registrations/types/registration.types'
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import PlayerProfileForm from '@/features/player/components/PlayerProfileForm'
@@ -43,7 +44,7 @@ const PlayerProfilePage = () => {
 
   const gold = medals.filter((medal) => medal.medalType === 'GOLD').length
   const silver = medals.filter((medal) => medal.medalType === 'SILVER').length
-  const events = Array.from(new Set(registrations.filter((item) => item.status === 'REGISTERED').map((item) => item.eventType)))
+  const events = Array.from(new Set(registrations.filter((item) => isConfirmedRegistration(item.status)).map((item) => item.eventType)))
   const tournamentById = new Map(tournaments.map((item) => [item.id, item]))
   const recentMedals = [...medals].sort((a, b) => new Date(b.achievedAt).getTime() - new Date(a.achievedAt).getTime()).slice(0, 3)
   const stats = [{ value: profile.age, label: 'Age' }, { value: profile.location || '—', label: 'Location' }, { value: `${profile.experienceYears} yrs`, label: 'Experience' }, { value: profile.regularPlayer ? 'Yes' : 'No', label: 'Regular player' }]

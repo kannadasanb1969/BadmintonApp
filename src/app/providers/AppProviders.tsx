@@ -12,7 +12,7 @@ import { teamService } from '@/features/teams/services/teamService'
 import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { resultService } from '@/features/results/services/resultService'
 import { medalHistoryService } from '@/features/medals/services/medalHistoryService'
-import { notificationApiService } from '@/features/notifications/services/notificationApiService'
+import { BrowserNotificationSync } from '@/features/notifications/pages/BrowserNotifications'
 import { queryClient } from '@/api/queryClient'
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -42,7 +42,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       .then(async (user) => {
         if (useAuthStore.getState().sessionRevision !== session.sessionRevision) return
         useAuthStore.setState({ user })
-        void notificationApiService.refresh(user.id)
         if (user.role !== 'PLAYER') return
         const profile = await getPlayerProfileForUser(user)
         if (useAuthStore.getState().sessionRevision !== session.sessionRevision) return
@@ -59,6 +58,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, [hasHydrated])
   return (
     <QueryClientProvider client={queryClient}>
+      <BrowserNotificationSync />
       {children}
     </QueryClientProvider>
   )
