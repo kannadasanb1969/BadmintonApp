@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { ownerKey, ownerWrite, segment, useOwnerQuery, type Academy, type Billing, type Fee, type Invoice, type Mandate, type Order, type Payment, type Plan } from './api'
+import { AppIcon, type AppIconName } from '@/components/mobile/MobileAppShell'
+import { useAuthStore } from '@/store/authStore'
+import { ownerKey, ownerWrite, segment, useOwnerQuery, type Academy, type Billing, type Booking, type Fee, type Invoice, type Mandate, type Order, type Payment, type Plan } from './api'
 import { ActionForm, Panel, QueryState, readable, rupees, today } from './ui'
 
 type Summary = { expectedCollection: string; collected: string; outstanding: string }
@@ -14,29 +16,72 @@ function SummaryCards({ summary }: { summary: Summary }) {
   </div>
 }
 export function OwnerDashboard({ academy }: { academy: Academy }) {
-  const [month, setMonth] = useState(today().slice(0, 7))
+  const ownerName = useAuthStore(state => state.user?.displayName)
+  const date = today()
+  const [month, setMonth] = useState(date.slice(0, 7))
   const data = useOwnerQuery<Dashboard>('/dashboard', { academyId: academy.id, feeMonth: month })
-  return <>
-    <Panel title={academy.name}>
-      <p>{[academy.area, academy.city].filter(Boolean).join(', ')}</p>
-      <label>Reporting month<input type="month" value={month} onChange={event => { if (event.target.value) setMonth(event.target.value) }} /></label>
-      <QueryState query={data} />
-      {data.data && <div className="owner-metrics">
-        <div><span>Active courts</span><strong>{data.data.operations.activeCourts}</strong></div>
-        <div><span>Active batches</span><strong>{data.data.operations.activeBatches}</strong></div>
-        <div><span>Active members</span><strong>{data.data.operations.activeMembers}</strong></div>
-      </div>}
-    </Panel>
+  const bookings = useOwnerQuery<(Booking & { academyId?: string })[]>('/bookings', { date })
+  const courts = useOwnerQuery<{ id: string }[]>('/courts', { academyId: academy.id })
+  const todayCount = bookings.data?.filter(booking =>
+    booking.status !== 'CANCELLED' && (booking.academyId ? booking.academyId === academy.id : courts.data?.some(court => court.id === booking.courtId)),
+  ).length
+  const hour = Number(new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' }).format(new Date()))
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
+  const monthLabel = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(month + '-01T00:00:00Z'))
+  const shiftMonth = (distance: number) => {
+    const next = new Date(month + '-01T00:00:00Z')
+    next.setUTCMonth(next.getUTCMonth() + distance)
+    setMonth(next.toISOString().slice(0, 7))
+  }
+  const quick: { title: string; to: string; icon: AppIconName; tone: string }[] = [
+    { title: 'Add member', to: '/owner/members/new', icon: 'people', tone: 'blue' },
+    { title: 'Collect fee', to: '/owner/fees', icon: 'cash', tone: 'green' },
+    { title: 'View bookings', to: '/owner/bookings', icon: 'calendar', tone: 'purple' },
+    { title: 'Automatic reminders', to: '/owner/reminders/automatic', icon: 'bell', tone: 'red' },
+  ]
+
+  return <div className="owner-home">
+    <header className="owner-home-greeting">
+      <div><h1>{greeting}, {ownerName?.trim().split(/\s+/)[0] || 'Owner'}</h1><p>Here’s what’s happening at {academy.name} today.</p></div>
+      <div className="owner-month" role="group" aria-label="Reporting month">
+        <button type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>‹</button>
+        <label><span className="sr-only">Reporting month</span><input aria-describedby="owner-current-month" type="month" value={month}
+          onChange={event => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value) }} /></label>
+        <button type="button" aria-label="Next month" onClick={() => shiftMonth(1)}>›</button>
+        <span id="owner-current-month" className="sr-only">{monthLabel}</span>
+      </div>
+    </header>
+    <QueryState query={data} />
     {data.data && <>
-      <Panel title="Monthly collections"><SummaryCards summary={data.data.financial} /><Link className="owner-secondary" to="/owner/fees">Manage fees</Link></Panel>
-      <Panel title="Recent payments">{data.data.recentPayments.length === 0 && <p>No recent payments.</p>}
-        {data.data.recentPayments.map(payment => <div className="owner-list-row" key={payment.id}>
-          <p>{payment.memberName} · {payment.paymentDate} · {rupees(payment.amount)}</p>
-          <Link className="owner-secondary" to={'/owner/receipts/' + segment(payment.id)}>View receipt</Link>
-        </div>)}
-      </Panel>
+      <div className="owner-home-tiles">
+        {([
+          ['Total Members', data.data.operations.activeMembers, '/owner/members', 'people', 'blue'],
+          ['Today Bookings', todayCount ?? '–', '/owner/bookings', 'calendar', 'green'],
+          ['Expected Fees', rupees(data.data.financial.expectedCollection), '/owner/fees', 'clipboard', 'amber'],
+          ['Collected Fees', rupees(data.data.financial.collected), '/owner/reports', 'cash', 'purple'],
+        ] as const).map(([label, value, to, icon, tone]) => <Link className="owner-stat-tile" data-tone={tone} to={to} key={label}>
+          <span className="mobile-action-icon"><AppIcon name={icon} /></span><span>{label}<strong>{value}</strong></span><b aria-hidden="true">›</b>
+        </Link>)}
+      </div>
+      <Link to="/owner/reminders" className="owner-due-card"><AppIcon name="cash" /><span><strong>Pending Fees</strong><small>View outstanding fees and reminders</small></span><b>{rupees(data.data.financial.outstanding)} ›</b></Link>
     </>}
-  </>
+    <Panel title="Quick Actions">
+      <div className="owner-quick-actions">{quick.map(item => <Link key={item.to} to={item.to} data-tone={item.tone}>
+        <span className="mobile-action-icon"><AppIcon name={item.icon} /></span><strong>{item.title}</strong>
+      </Link>)}</div>
+    </Panel>
+    <Link to="/owner/assistant" className="owner-assistant-card"><AppIcon name="mic" /><span><strong>Voice Assistant</strong><small>Ask about bookings, members or fees</small></span><b aria-hidden="true">›</b></Link>
+    {data.data && <Panel title="Recent activity">{data.data.recentPayments.length === 0 && <p>No recent payments.</p>}
+      {data.data.recentPayments.map(payment => <div className="owner-list-row" key={payment.id}>
+        <p>{payment.memberName} · {payment.paymentDate} · {rupees(payment.amount)}</p>
+        <Link className="owner-secondary" to={'/owner/receipts/' + segment(payment.id)}>View receipt</Link>
+      </div>)}
+    </Panel>}
+    <div className="owner-actions"><Link className="owner-secondary" to="/owner/courts">Active courts {data.data?.operations.activeCourts ?? '–'}</Link>
+      <Link className="owner-secondary" to="/owner/batches">Active batches {data.data?.operations.activeBatches ?? '–'}</Link>
+      <Link className="owner-secondary" to="/owner/reports">Collection reports</Link>
+    </div>
+  </div>
 }
 
 export function Fees({ academy, report = false }: { academy: Academy; report?: boolean }) {

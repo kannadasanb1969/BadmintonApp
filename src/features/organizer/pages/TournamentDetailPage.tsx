@@ -111,13 +111,13 @@ const TournamentDetailPage = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{tournament.name}</h1>
-        <p className="text-sm text-gray-500">Tournament Code: {tournament.tournamentCode}</p>
+      <div className="organizer-workflow-hero mb-6">
+        <h1 className="text-2xl font-bold">{tournament.name}</h1>
+        <p className="text-sm">Tournament Code: {tournament.tournamentCode}</p>
       </div>
 
-      <div className="border rounded-lg p-6 bg-white mb-6">
-        <div className="flex justify-between items-start mb-4">
+      <div className="organizer-registration-card mb-6">
+        <div className="flex flex-wrap gap-3 justify-between items-start mb-4">
           <div>
             <h2 className="text-lg font-medium text-gray-700">Status</h2>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${color}`}>

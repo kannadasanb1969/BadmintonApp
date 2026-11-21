@@ -67,3 +67,19 @@
 .court-days [aria-pressed='true'] { background: #096448; color: white; }
 .court-back, .court-error a { color: #096448; font-weight: 700; text-decoration: underline; }
 .court-error { color: #8e2525; }
+
+.court-booking-page { background: #f4faf6; }
+.court-booking-header { align-items: end; }
+.court-booking-header h1 { color: #103f2e; margin-top: .25rem; overflow-wrap: anywhere; }
+.court-panel { border-radius: 18px; border-color: #dcebe1; }
+.court-primary, .court-outline { border-radius: 12px; }
+.court-reservation { display: grid; gap: .45rem; border-radius: 14px; background: #eff8f2; padding: .9rem; }
+.court-reservation-heading { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.court-reservation p { display: flex; align-items: center; gap: .45rem; }
+.court-reservation svg { width: 1rem; height: 1rem; flex-shrink: 0; color: #087044; }
+.court-status { background: #fff2d2; color: #794708; padding: .25rem .55rem; border-radius: 999px; font-weight: 750; font-size: .75rem; text-transform: capitalize; }
+.court-status[data-status="CONFIRMED"] { background: #d9f2e3; color: #075934; }
+.court-status:is([data-status="CANCELLED"], [data-status="EXPIRED"]) { background: #f9e8e6; color: #842f2b; }
+.court-amounts { display: grid; gap: .55rem; }
+.court-amounts > div { display: flex; justify-content: space-between; gap: .7rem; padding: .45rem .25rem; border-bottom: 1px solid #e3ede6; }
+.court-amounts dd { font-weight: 800; }

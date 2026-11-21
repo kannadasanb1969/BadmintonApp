@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { AppIcon } from '@/components/mobile/MobileAppShell'
 import { ApiError } from '@/api/apiClient'
 import { bookingApi, bookingKey, useBookingQuery, type Booking, type BookingPaymentOption, type Checkout, type Quote, type Selection, type Venue } from './api'
 import { openTestCheckout, webCheckoutApi, webCheckoutEnabled } from './webCheckout'
@@ -18,10 +19,13 @@ const timeLabel = (time: string) => time.slice(0, 5)
 const money = (amount: string) => currency.format(Number(amount))
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.'
 
-function BookingPage({ title, children, history = false }: { title: string; children: ReactNode; history?: boolean }) {
+function BookingPage({ title, children, history = false, back }: { title: string; children: ReactNode; history?: boolean; back?: { to: string; label: string } }) {
   return <section className="court-booking-page">
     <header className="court-booking-header">
-      <h1>{title}</h1>
+      <div>
+        {back && <Link className="court-back" to={back.to} aria-label={back.label}>← {back.label}</Link>}
+        <h1>{title}</h1>
+      </div>
       <Link className="court-outline" to={history ? '/player/courts' : '/player/court-bookings'}>
         {history ? 'Find courts' : 'My bookings'}
       </Link>
@@ -183,8 +187,7 @@ export function VenueBookingPage() {
     if (!checkout || checkout.request.paymentOption === paymentOption) return
     setCheckout({ ...checkout, request: { ...checkout.request, paymentOption, idempotencyKey: crypto.randomUUID() } })
   }
-  return <BookingPage title={venue?.name ?? 'Court availability'}>
-    <Link className="court-back" to="/player/courts">← All courts</Link>
+  return <BookingPage title={venue?.name ?? 'Court availability'} back={{ to: '/player/courts', label: 'All courts' }}>
     {!!venue && <div className="court-panel">
       {venue.address && <p>{venue.address}</p>}
       <div className="court-photo-row">{photosOf(venue).map(url => <VenuePhoto key={url} name={venue.name} url={url} />)}</div>
@@ -215,9 +218,12 @@ export function VenueBookingPage() {
     {error && <div className="court-panel court-error" role="alert">{error} {!checkout && <Link to="/player/profile">View player profile</Link>}</div>}
     {checkout && <section className="court-panel court-review">
       <h2>Review booking</h2>
-      <p>{checkout.quote.booker.name} · {dateLabel(date)} · {timeLabel(start)}–{timeLabel(end)} IST</p>
-      <p>Available court: {checkout.quote.court.name}</p>
-      <p>Total <strong>{money(checkout.quote.total)}</strong></p>
+      <div className="court-reservation">
+        <strong>{checkout.quote.court.academyName} · {checkout.quote.court.name}</strong>
+        <p><AppIcon name="calendar" /> {dateLabel(date)} · {timeLabel(start)}–{timeLabel(end)} IST</p>
+        <p><AppIcon name="user" /> {checkout.quote.booker.name}</p>
+      </div>
+      <dl className="court-amounts"><div><dt>Total</dt><dd>{money(checkout.quote.total)}</dd></div></dl>
       {(webCheckoutEnabled || checkout.quote.testPayments && checkout.quote.onlinePaymentsAvailable) ? <label>Payment option
         <select value={checkout.request.paymentOption} disabled={busy || create.isError} onChange={event => updatePayment(event.target.value as BookingPaymentOption)}>
           <option value="PAY_AT_COURT">Pay at court</option><option value="FULL_ONLINE">Full test payment</option><option value="ADVANCE_30">30% test advance</option>
@@ -235,10 +241,18 @@ export function VenueBookingPage() {
 
 function BookingSummary({ booking }: { booking: Booking }) {
   return <>
-    <h2>{booking.academyName}</h2>
-    <p>{booking.courtName} · {booking.status.toLowerCase()}</p>
-    <p>{dateLabel(booking.bookingDate)} · {timeLabel(booking.startTime)}–{timeLabel(booking.endTime)} IST</p>
-    <p>Total <strong>{money(booking.paymentSummary.bookingAmount)}</strong> · Paid {money(booking.paymentSummary.totalPaid)} · Balance {money(booking.paymentSummary.balance)}</p>
+    <div className="court-reservation">
+      <div className="court-reservation-heading"><h2>{booking.academyName}</h2>
+        <span className="court-status" data-status={booking.status}>{booking.status.toLowerCase()}</span>
+      </div>
+      <p>{booking.courtName}</p>
+      <p><AppIcon name="calendar" /> {dateLabel(booking.bookingDate)} · {timeLabel(booking.startTime)}–{timeLabel(booking.endTime)} IST</p>
+    </div>
+    <dl className="court-amounts">
+      <div><dt>Total</dt><dd>{money(booking.paymentSummary.bookingAmount)}</dd></div>
+      <div><dt>Paid</dt><dd>{money(booking.paymentSummary.totalPaid)}</dd></div>
+      <div><dt>Balance</dt><dd>{money(booking.paymentSummary.balance)}</dd></div>
+    </dl>
   </>
 }
 
@@ -278,7 +292,7 @@ export function BookingDetailsPage() {
       await client.invalidateQueries({ queryKey: bookingKey })
     },
   })
-  return <BookingPage title="Booking details">
+  return <BookingPage title="Booking details" history back={{ to: "/player/court-bookings", label: "My bookings" }}>
     <LoadState pending={details.isPending} error={details.error} retry={() => void details.refetch()} />
     {details.data && <article className="court-panel court-review">
       <BookingSummary booking={details.data} />

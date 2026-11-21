@@ -607,11 +607,11 @@ const CategoryFixturePage = () => {
   if (category.eventType === 'SINGLES') {
     return (
       <div className="fixture-arena p-5 sm:p-8">
-        <div className="fixture-hero mb-6">
-          <div><p className="text-sm font-bold uppercase tracking-[.2em] text-blue-300">{tournament.name}</p><h1 className="text-3xl font-black">
+        <div className="fixture-hero organizer-workflow-hero mb-6">
+          <div><p className="text-sm font-bold uppercase tracking-[.2em] text-lime-200">{tournament.name}</p><h1 className="text-3xl font-black">
             Singles Fixture
           </h1></div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm">
             {formatDateDisplay(tournament.tournamentDate)} • {tournament.venueName}
           </p>
         </div>
@@ -698,11 +698,11 @@ const CategoryFixturePage = () => {
   } else if (category.eventType === 'DOUBLES') {
     return (
       <div className="fixture-arena p-5 sm:p-8">
-        <div className="fixture-hero mb-6">
-          <div><p className="text-sm font-bold uppercase tracking-[.2em] text-blue-300">{tournament.name}</p><h1 className="text-3xl font-black">
+        <div className="fixture-hero organizer-workflow-hero mb-6">
+          <div><p className="text-sm font-bold uppercase tracking-[.2em] text-lime-200">{tournament.name}</p><h1 className="text-3xl font-black">
             Doubles Fixture
           </h1></div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm">
             {formatDateDisplay(tournament.tournamentDate)} • {tournament.venueName}
           </p>
         </div>

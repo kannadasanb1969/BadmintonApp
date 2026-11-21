@@ -149,14 +149,25 @@ export function BookingDetails({ id }: { id: string }) {
   const payments = useOwnerQuery<{ payments: { id: string; receiptNumber: string; amount: string; paymentDate: string }[] }>(path + '/payments')
   const b = booking.data
   return <>
-    <Panel title="Booking details"><QueryState query={booking} />{b && <>
-      <h3>{b.customerName || 'Customer'}</h3>
-      <p>{b.courtName} · {b.bookingDate} · {b.startTime}–{b.endTime} IST</p><p>{readable(b.status)} · Total {rupees(b.paymentSummary?.bookingAmount ?? b.bookingAmount)} · Balance {rupees(b.paymentSummary?.balance)}</p>
-      {b.customerMobile && <a href={'tel:' + b.customerMobile}>Call {b.customerMobile}</a>}
-      {b.status === 'CONFIRMED' && <ActionForm label="Cancel booking" confirm="Cancel this booking and release the slot?" perform={data => ownerWrite(path + '/cancel', { cancellationReason: optional(data, 'reason') })}>
+    <Link className="owner-back-link" to="/owner/bookings">← Bookings</Link>
+    <header className="owner-page-heading"><h1>Booking details</h1>
+      {b && <span className="owner-status-pill" data-status={b.status}>{readable(b.status)}</span>}
+    </header>
+    <QueryState query={booking} />
+    {b && <>
+      <Panel title={b.courtName || 'Court booking'}>
+        <p>{b.bookingDate} · {b.startTime.slice(0, 5)}–{b.endTime.slice(0, 5)} IST</p>
+        <p><strong>{b.customerName || 'Customer'}</strong>{b.customerMobile && <> · <a href={'tel:' + b.customerMobile}>{b.customerMobile}</a></>}</p>
+        <dl className="owner-record-amounts">
+          <div><dt>Total</dt><dd>{rupees(b.paymentSummary?.bookingAmount ?? b.bookingAmount)}</dd></div>
+          {b.paymentSummary && <><div><dt>Paid</dt><dd>{rupees(b.paymentSummary.totalPaid)}</dd></div>
+            <div><dt>Balance</dt><dd>{rupees(b.paymentSummary.balance)}</dd></div></>}
+        </dl>
+      </Panel>
+      {b.status === 'CONFIRMED' && <Panel><details><summary>Cancel booking</summary><ActionForm label="Cancel booking" confirm="Cancel this booking and release the slot?" perform={data => ownerWrite(path + '/cancel', { cancellationReason: optional(data, 'reason') })}>
         <TextField name="reason" label="Cancellation reason" />
-      </ActionForm>}
-    </>}</Panel>
+      </ActionForm></details></Panel>}
+    </>}
     <Panel title="Booking payments">
       <QueryState query={payments} />
       {payments.data?.payments.map(payment => <div className="owner-list-row" key={payment.id}><p>{payment.paymentDate} · {rupees(payment.amount)}</p>

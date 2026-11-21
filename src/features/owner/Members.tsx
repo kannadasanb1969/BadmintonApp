@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ownerWrite, segment, useOwnerQuery, type Academy, type Batch, type Fee, type Member, type Membership, type Payment } from './api'
 import { ActionForm, field, ItemsSelect, optional, Panel, PaymentMode, QueryState, readable, rupees, TextField, today } from './ui'
 
@@ -14,30 +14,56 @@ function EnrollmentFields({ batches, required = false }: { batches: Batch[]; req
   </>
 }
 
+export function AddMember({ academy }: { academy: Academy }) {
+  const batches = useOwnerQuery<Batch[]>('/batches', { academyId: academy.id })
+  const navigate = useNavigate()
+
+  return <>
+    <Link className="owner-back-link" to="/owner/members">← Members</Link>
+    <Panel title="Add member">
+      <QueryState query={batches} />
+      <ActionForm label="Add member" perform={async data => {
+        const batchId = optional(data, 'batchId')
+        const startDate = optional(data, 'startDate')
+        const monthlyFee = optional(data, 'monthlyFee')
+        if (batchId && (!startDate || monthlyFee === undefined)) throw new Error('Enter a start date and monthly fee for the selected batch.')
+        await ownerWrite('/members', { academyId: academy.id, name: field(data, 'name'), mobile: optional(data, 'mobile'), ...(batchId ? { batchId, startDate, monthlyFee } : {}) })
+        navigate('/owner/members')
+      }}>
+        <div className="owner-fields"><TextField name="name" label="Member name" required /><TextField name="mobile" label="Mobile" type="tel" /><EnrollmentFields batches={batches.data ?? []} /></div>
+      </ActionForm>
+    </Panel>
+  </>
+}
+
 export function Members({ academy }: { academy: Academy }) {
   const members = useOwnerQuery<Member[]>('/members', { academyId: academy.id })
-  const batches = useOwnerQuery<Batch[]>('/batches', { academyId: academy.id })
   const [filter, setFilter] = useState('')
-  const filtered = members.data?.filter(member => (member.name + ' ' + (member.mobile ?? '')).toLowerCase().includes(filter.toLowerCase().trim()))
+  const { hash } = useLocation()
+  if (hash === '#add-member') return <Navigate to="/owner/members/new" replace />
+  const query = filter.trim().toLowerCase()
+  const filtered = members.data?.filter(member => (member.name + ' ' + (member.mobile ?? '')).toLowerCase().includes(query))
   return <>
-    <Panel title="Add member"><ActionForm label="Add member" reset perform={data => {
-      const batchId = optional(data, 'batchId')
-      const startDate = optional(data, 'startDate')
-      const monthlyFee = optional(data, 'monthlyFee')
-      if (batchId && (!startDate || monthlyFee === undefined)) throw new Error('Enter a start date and monthly fee for the selected batch.')
-      return ownerWrite('/members', { academyId: academy.id, name: field(data, 'name'), mobile: optional(data, 'mobile'), ...(batchId ? { batchId, startDate, monthlyFee } : {}) })
-    }}>
-      <div className="owner-fields"><TextField name="name" label="Member name" required /><TextField name="mobile" label="Mobile" type="tel" /><EnrollmentFields batches={batches.data ?? []} /></div>
-    </ActionForm></Panel>
-    <Panel title="Members">
-      <label>Search members<input type="search" value={filter} onChange={event => setFilter(event.target.value)} /></label>
+    <header className="owner-page-heading">
+      <h1>Members</h1>
+      <Link className="owner-primary" to="/owner/members/new">+ Add member</Link>
+    </header>
+    <Panel>
+      <label>Search members<input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Search name or mobile" /></label>
       <QueryState query={members} />
-      {filtered?.length === 0 && <p>No matching members.</p>}
-      {filtered?.map(member => <div className="owner-list-row" key={member.id}>
-        <div><strong>{member.name}</strong><p>{member.mobile ?? 'No mobile'} · {readable(member.status)}</p></div>
-        <Link className="owner-secondary" to={'/owner/members/' + segment(member.id)}>Manage member</Link>
-      </div>)}
+      {filtered?.length === 0 && <p>{query ? 'No members match your search.' : 'No members yet.'}</p>}
+      <ul className="owner-member-list">
+        {filtered?.map(member => <li key={member.id}>
+          <Link to={'/owner/members/' + segment(member.id)}>
+            <span className="owner-avatar" aria-hidden="true">{member.name.trim().charAt(0).toUpperCase()}</span>
+            <span className="owner-member-name"><strong>{member.name}</strong>{member.mobile && <small>{member.mobile}</small>}</span>
+            <span className="owner-status-pill" data-status={member.status}>{readable(member.status)}</span>
+            <span aria-hidden="true">›</span>
+          </Link>
+        </li>)}
+      </ul>
     </Panel>
+    <Link className="owner-secondary" to="/owner/members/duplicates">Review duplicate members</Link>
   </>
 }
 
@@ -113,7 +139,13 @@ export function MemberDetails({ academy, id }: { academy: Academy; id: string })
   if (!m) return <QueryState query={member} />
   const allMemberships = [...new Map([...m.activeMemberships, ...(m.inactiveMemberships ?? []), ...m.history].map(item => [item.id, item])).values()]
   return <>
-    <Panel title={m.name}><ActionForm label="Save member" perform={data => ownerWrite(path, { name: field(data, 'name'), mobile: optional(data, 'mobile') ?? null, status: field(data, 'status') }, 'PATCH')}>
+    <Link className="owner-back-link" to="/owner/members">← Members</Link>
+    <header className="owner-record-hero">
+      <span className="owner-avatar" aria-hidden="true">{m.name.trim().charAt(0).toUpperCase()}</span>
+      <div><h1>{m.name}</h1>{m.mobile && <a href={'tel:' + m.mobile}>{m.mobile}</a>}</div>
+      <span className="owner-status-pill" data-status={m.status}>{readable(m.status)}</span>
+    </header>
+    <Panel title="Member information"><ActionForm label="Save member" perform={data => ownerWrite(path, { name: field(data, 'name'), mobile: optional(data, 'mobile') ?? null, status: field(data, 'status') }, 'PATCH')}>
       <div className="owner-fields"><TextField name="name" label="Member name" initial={m.name} required /><TextField name="mobile" label="Mobile" type="tel" initial={m.mobile} />
         <label>Status<select name="status" defaultValue={m.status}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label></div>
     </ActionForm></Panel>

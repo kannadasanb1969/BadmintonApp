@@ -39,7 +39,7 @@ function State({ query }: { query: { isLoading: boolean; error: unknown; refetch
   return query.error ? <p role="alert">{cause(query.error)} <button type="button" className={button} onClick={() => void query.refetch()}>Retry</button></p> : null
 }
 function Page({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="mx-auto grid max-w-5xl gap-4 rounded-2xl bg-emerald-50 p-4 text-emerald-950 sm:p-6"><h1 className="text-2xl font-extrabold">{title}</h1>{children}</section>
+  return <section className="mx-auto grid max-w-5xl gap-4 rounded-2xl border border-emerald-800 bg-[#082d24] p-4 text-emerald-50 sm:p-6"><h1 className="text-2xl font-extrabold">{title}</h1>{children}</section>
 }
 function PlayerLink({ player }: { player: Player }) {
   return <Link className="flex min-w-0 items-center gap-3 text-emerald-900" to={'/player/players/' + encode(player.id)}>
@@ -60,7 +60,7 @@ export function ConnectionsPage() {
     </div>
     {tab === 'discover' && <>
       <form className="flex flex-wrap gap-2" onSubmit={event => { event.preventDefault(); setSearch(text.trim()) }}>
-        <input aria-label="Search player name or code" className="min-h-10 rounded-lg border bg-white px-3" type="search" value={text} onChange={event => setText(event.target.value)} placeholder="Player name or code" />
+        <input aria-label="Search player name or code" className="min-h-10 rounded-lg border bg-white px-3 text-emerald-950" type="search" value={text} onChange={event => setText(event.target.value)} placeholder="Player name or code" />
         <button className={button}>Search</button>
       </form><State query={discover} /><ConnectionList rows={discover.data} />
     </>}
@@ -112,7 +112,7 @@ export function PublicPlayerPage() {
     </section>}
     {data && <section className={panel}>
       <h2 className="font-bold">Match history</h2>
-      <label>Match type <select className="rounded border p-2" value={kind} onChange={event => setKind(event.target.value)}><option value="ALL">All matches</option><option value="TOURNAMENT">Tournaments</option><option value="FRIENDLY">Friendly matches</option></select></label>
+      <label>Match type <select className="rounded border bg-white p-2 text-emerald-950" value={kind} onChange={event => setKind(event.target.value)}><option value="ALL">All matches</option><option value="TOURNAMENT">Tournaments</option><option value="FRIENDLY">Friendly matches</option></select></label>
       <State query={activity} />
       {stats && <p>{stats.stats.completedMatches} played · {stats.stats.wins} won · {stats.stats.losses} lost · {stats.stats.winPercentage}% wins</p>}
       {activity.data?.pages.flatMap(page => page.matches).map(match => <article key={match.id} className="border-t pt-2"><strong>{match.title}</strong><p>vs. {match.opponentSide} · {match.playerScore}–{match.opponentScore} · {match.won ? 'Won' : 'Lost'}</p></article>)}
@@ -182,9 +182,9 @@ export function RegistrationDetailsPage() {
       const data = new FormData(event.currentTarget)
       action.mutate({ partnerId: String(data.get('partnerId')), consent: data.has('consent') }, { onSuccess: () => setReplace(false) })
     }}>
-      <label>Partner type <select className="rounded border p-2" value={type} onChange={event => setType(event.target.value === 'GUEST' ? 'GUEST' : 'PLAYER')}><option value="PLAYER">Existing player</option><option value="GUEST">Guest</option></select></label>
+      <label>Partner type <select className="rounded border bg-white p-2 text-emerald-950" value={type} onChange={event => setType(event.target.value === 'GUEST' ? 'GUEST' : 'PLAYER')}><option value="PLAYER">Existing player</option><option value="GUEST">Guest</option></select></label>
       <State query={type === 'PLAYER' ? players : guests} />
-      <label>Partner <select className="rounded border p-2" name="partnerId" required key={type}><option value="">Select</option>{(type === 'PLAYER' ? players.data : guests.data)?.filter(person => person.id !== profile).map(person => <option key={person.id} value={person.id}>{person.fullName}</option>)}</select></label>
+      <label>Partner <select className="rounded border bg-white p-2 text-emerald-950" name="partnerId" required key={type}><option value="">Select</option>{(type === 'PLAYER' ? players.data : guests.data)?.filter(person => person.id !== profile).map(person => <option key={person.id} value={person.id}>{person.fullName}</option>)}</select></label>
       {type === 'GUEST' && <label><input type="checkbox" name="consent" /> Guest has consented to a WhatsApp invitation</label>}
       <button className={button} disabled={action.isPending}>Send replacement invitation</button>
     </form>}

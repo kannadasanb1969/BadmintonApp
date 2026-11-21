@@ -38,17 +38,17 @@ const TournamentListPage = () => {
   }
 
   if (error) {
-    return <div className="text-center text-red-600 py-10">{error}</div>;
+    return <div className="workspace-white-card place-items-center py-10">{error}</div>;
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Tournaments</h1>
+        <h1 className="text-2xl font-bold text-white">My Tournaments</h1>
         <div className="flex items-center space-x-3">
           <button
             onClick={() => navigate('/organizer/tournaments/new')}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="rounded-xl bg-[#8ae234] px-4 py-2 font-bold text-[#103923] hover:bg-lime-200"
           >
             Create Tournament
           </button>
@@ -56,7 +56,7 @@ const TournamentListPage = () => {
       </div>
 
       {tournaments.length === 0 ? (
-        <div className="text-center text-gray-500 py-10">
+        <div className="workspace-white-card place-items-center py-10">
           <p>You haven't created any tournaments yet.</p>
         </div>
       ) : (

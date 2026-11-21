@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { queryClient } from '@/api/queryClient'
+import { fixtureService } from '@/features/fixtures/services/fixtureService'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useTournamentStore } from '@/features/tournaments/store/tournamentStore'
-import { useTeamStore } from '@/features/teams/store/teamStore'
-import { useRegistrationStore } from '@/features/registrations/store/registrationStore'
-import { useFixtureStore } from '@/features/fixtures/store/fixtureStore'
 
-import { TournamentCategory } from '@/features/tournaments/types/tournament.types'
-import { Team } from '@/features/teams/types/team.types'
-import { Registration } from '@/features/registrations/types/registration.types'
-import { Fixture } from '@/features/fixtures/types/fixture.types'
 
 import { formatDateDisplay } from '@/features/tournaments/utils/tournamentHelpers'
 
@@ -28,6 +24,12 @@ const TournamentRegistrationsPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [closingCategory, setClosingCategory] = useState<string | null>(null)
   const currentUser = useAuthStore(state => state.user)
+  const isOrganizer = Boolean(currentUser && (currentUser.role === 'ADMIN' || (currentUser.role === 'ORGANIZER' && tournament?.organizerId === currentUser.id)))
+  const fixtures = useQuery({
+    queryKey: ['organizer-registration-fixtures', currentUser?.id, tournamentId],
+    queryFn: () => fixtureService.getFixtures(),
+    enabled: isOrganizer && tournament?.id === tournamentId,
+  }, queryClient)
 
   useEffect(() => {
     // Fetch tournament if not already loaded
@@ -42,7 +44,7 @@ const TournamentRegistrationsPage = () => {
     }
   }, [tournamentId])
 
-  if (tournamentLoading || !tournament) {
+  if (tournamentLoading || (!tournamentError && tournament?.id !== tournamentId)) {
     return (
       <div className="text-center py-8">
         Loading tournament details...
@@ -50,7 +52,7 @@ const TournamentRegistrationsPage = () => {
     )
   }
 
-  if (tournamentError) {
+  if (tournamentError || !tournament) {
     return (
       <div className="text-center py-8 text-red-500">
         Error loading tournament: {tournamentError}
@@ -58,13 +60,7 @@ const TournamentRegistrationsPage = () => {
     )
   }
 
-  // Check if the current user is the organizer
-  // We need to get the current organizer from auth (not implemented yet)
-  // For now, we'll assume the user is the organizer if the tournament has an organizerId
-  // In a real app, we would check against the logged-in user's organizer profile.
-  // We'll skip this check for now and rely on route protection (RoleRoute with ORGANIZER role).
-  // But we should still check that the organizerId matches the current user.
-  // Since we don't have auth context here, we'll assume the route protection is enough.
+  if (!isOrganizer) return <p className="p-4" role="alert">Only the tournament organizer can manage registrations.</p>
 
   const handleCloseRegistration = async (categoryId: string) => {
     if (!currentUser || !tournamentId || isLoading) return
@@ -80,21 +76,13 @@ const TournamentRegistrationsPage = () => {
     }
   }
 
-  const handleGenerateFixture = async (categoryId: string) => {
-    navigate(`/organizer/tournaments/${tournamentId}/categories/${categoryId}`)
-  }
-
-  const handleViewFixture = async (categoryId: string) => {
-    navigate(`/organizer/tournaments/${tournamentId}/categories/${categoryId}`)
-  }
-
   return (
-    <div className="p-4">
-      <div className="mb-6">
+    <div className="organizer-registration-page p-4">
+      <div className="organizer-workflow-hero mb-6">
         <h1 className="text-2xl font-bold">
           {tournament.name}
         </h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm">
           {formatDateDisplay(tournament.tournamentDate)} • {tournament.venueName}
         </p>
       </div>
@@ -116,15 +104,17 @@ const TournamentRegistrationsPage = () => {
         <h2 className="text-xl font-semibold mb-3">
           Manage Registrations
         </h2>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-emerald-100">
           Select a category to view registrations, close registration, or manage fixture.
         </p>
       </div>
 
       <div className="space-y-4">
-        {tournament.categories.map(category => (
-          <div key={category.id} className="border rounded-lg p-4">
-            <div className="flex justify-between items-start">
+        {tournament.categories.map(category => {
+          const fixture = fixtures.data?.find(item => item.tournamentId === tournamentId && item.categoryId === category.id)
+          const count = category.eventType === 'DOUBLES' ? category.registeredTeamCount : category.registeredPlayerCount
+          return <article key={category.id} className="organizer-registration-card">
+            <div className="flex flex-wrap justify-between items-start gap-3">
               <div>
                 <h3 className="text-lg font-semibold">
                   {category.name}
@@ -133,7 +123,7 @@ const TournamentRegistrationsPage = () => {
                   {category.eventType === 'SINGLES' ? 'Singles' : 'Doubles'}
                 </p>
               </div>
-              <div className="space-x-3">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setClosingCategory(category.id)}
                   className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
@@ -142,11 +132,11 @@ const TournamentRegistrationsPage = () => {
                   {category.registrationPhase === 'CLOSED' ? 'Closed' : 'Close Registration'}
                 </button>
                 <button
-                  onClick={() => handleGenerateFixture(category.id)}
+                  onClick={() => navigate(`/organizer/tournaments/${tournamentId}/categories/${category.id}`)}
                   className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-                  disabled={category.registrationPhase !== 'CLOSED'}
+                  disabled={!fixture && category.registrationPhase !== 'CLOSED'}
                 >
-                  Generate Fixture
+                  {fixture ? 'View Fixture' : 'Generate Fixture'}
                 </button>
               </div>
             </div>
@@ -165,18 +155,13 @@ const TournamentRegistrationsPage = () => {
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Fixture Status:</span>
                 <span className="text-sm">
-                  {/* We'll get the fixture status from the fixture store */}
-                  {/* We'll compute it below */}
-                  {/* For now, we'll leave it as not generated */}
-                  <span className="text-gray-500">Not Generated</span>
+                  {fixtures.isPending ? 'Loading…' : fixtures.isError ? 'Unavailable' : fixture?.status === 'PUBLISHED' ? 'Published' : fixture ? 'Draft' : 'Not Generated'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Registered Entries:</span>
                 <span className="text-sm">
-                  {/* We'll compute the count based on event type */}
-                  {/* We'll compute it below */}
-                  0
+                  {count ?? '—'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -186,8 +171,8 @@ const TournamentRegistrationsPage = () => {
                 </span>
               </div>
             </div>
-          </div>
-        ))}
+          </article>
+        })}
       </div>
 
       <div className="mt-6">
