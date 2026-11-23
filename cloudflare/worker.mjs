@@ -20,6 +20,25 @@ export default {
         const forwarded = new Request(upstream, request)
         const response = await fetch(new Request(forwarded, { headers, redirect: 'manual' }))
         if (response.status === 101) return response
+        const contentType = response.headers.get('Content-Type') || ''
+        const starting = response.headers.get('x-render-routing') === 'hibernate-rate-limited'
+          || (contentType.includes('text/html') && response.status === 200)
+          || (!contentType.includes('application/json') && [502, 503].includes(response.status))
+        if (starting) {
+          await response.body?.cancel()
+          return Response.json({
+            success: false,
+            code: 'SERVICE_STARTING',
+            message: 'The server is starting. Please wait a minute and try again.',
+          }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '10' } })
+        }
+        if (response.status === 429 && !contentType.includes('application/json')) {
+          await response.body?.cancel()
+          return Response.json({ success: false, message: 'Too many requests. Please wait a minute before trying again.' }, {
+            status: 429,
+            headers: { 'Cache-Control': 'no-store', 'Retry-After': response.headers.get('Retry-After') || '60' },
+          })
+        }
         const result = new Response(response.body, response)
         result.headers.set('Cache-Control', 'no-store')
         return result

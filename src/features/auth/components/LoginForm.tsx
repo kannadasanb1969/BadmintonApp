@@ -25,6 +25,7 @@ const LoginForm = ({ adminMode, onToggleAdmin }: Props) => {
   const [developmentHint, setDevelopmentHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [requestStatus, setRequestStatus] = useState('Sending OTP…')
   const { login, sessionMessage } = useAuthStore()
   const navigate = useNavigate()
 
@@ -43,7 +44,7 @@ const LoginForm = ({ adminMode, onToggleAdmin }: Props) => {
   const request = async () => {
     setError(null); if (!validate()) return
     setLoading(true)
-    try { const response = await requestOtp(mobile); setOtpRequested(true); setOtp(''); setDevelopmentHint(import.meta.env.DEV && response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : null) }
+    try { const response = await requestOtp(mobile, setRequestStatus); setOtpRequested(true); setOtp(''); setDevelopmentHint(import.meta.env.DEV && response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : null) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to request OTP') }
     finally { setLoading(false) }
   }
@@ -102,8 +103,8 @@ const LoginForm = ({ adminMode, onToggleAdmin }: Props) => {
         onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />
       {developmentHint && <p>{developmentHint}</p>}
     </div>}
-    <button type="submit" disabled={loading} className="app-login-submit">
-      {otpRequested ? (loading ? 'Verifying…' : 'Verify OTP') : (loading ? 'Sending…' : 'Send OTP via WhatsApp')}
+    <button type="submit" disabled={loading} aria-busy={loading} className="app-login-submit">
+      {otpRequested ? (loading ? 'Verifying…' : 'Verify OTP') : (loading ? requestStatus : 'Send OTP via WhatsApp')}
     </button>
     {otpRequested && <button type="button" onClick={() => void request()} disabled={loading} className="app-login-link">Resend OTP</button>}
     {(error || sessionMessage) && <p role="alert" className="app-login-error">{error || sessionMessage}</p>}

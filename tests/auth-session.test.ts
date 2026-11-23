@@ -19,7 +19,7 @@ Object.defineProperty(globalThis, 'window', {
 
 const { isAccessTokenExpired } = await import('../src/features/auth/utils/accessToken.ts')
 const { useAuthStore } = await import('../src/store/authStore.ts')
-const { default: apiClient, getCurrentAccessToken, logoutSession } = await import('../src/api/apiClient.ts')
+const { default: apiClient, apiBaseUrl, getCurrentAccessToken, logoutSession } = await import('../src/api/apiClient.ts')
 const { getProtectedRouteState } = await import('../src/routes/ProtectedRoute.tsx')
 const { requestOtp, verifyOtpLogin } = await import('../src/features/auth/services/authService.ts')
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -178,3 +178,44 @@ assert.deepEqual(revokedTokens, ['initial-refresh', 'late-refresh'])
 assert.equal(useAuthStore.getState().isAuthenticated, false)
 assert.equal(useAuthStore.getState().refreshToken, null)
 console.log('PASS: Java OTP contract, legacy session migration, one refresh for concurrent requests, reload recovery, transient API failure and logout during refresh')
+
+// A cold web backend is probed before any WhatsApp message is requested.
+Object.defineProperty(window, 'location', { configurable: true, value: { origin: apiBaseUrl } })
+const nativeTimeout = globalThis.setTimeout
+const steps: string[] = []
+let healthAttempts = 0
+let otpAttempts = 0
+try {
+  globalThis.setTimeout = ((callback: () => void) => nativeTimeout(callback, 0)) as typeof setTimeout
+  apiClient.defaults.adapter = async config => {
+    steps.push(config.url ?? '')
+    if (config.url === '/api/health') {
+      healthAttempts++
+      if (healthAttempts < 3) return rejectStatus(config, 503)
+      return response(config, { success: true, message: 'Ready' })
+    }
+    otpAttempts++
+    return response(config, { success: true, message: 'OTP sent' })
+  }
+  await requestOtp(organizer.mobile)
+  assert.equal(healthAttempts, 3)
+  assert.equal(otpAttempts, 1)
+  assert.equal(steps.at(-1), '/api/auth/request-otp')
+
+  steps.length = 0
+  apiClient.defaults.adapter = config => { steps.push(config.url ?? ''); return rejectStatus(config, 503) }
+  await assert.rejects(requestOtp(organizer.mobile), /still starting/)
+  assert.equal(steps.length, 6)
+  assert.ok(steps.every(path => path === '/api/health'))
+
+  steps.length = 0
+  apiClient.defaults.adapter = config => {
+    steps.push(config.url ?? '')
+    return config.url === '/api/health' ? Promise.resolve(response(config, { success: true })) : rejectStatus(config, 429)
+  }
+  await assert.rejects(requestOtp(organizer.mobile), { status: 429 })
+  assert.deepEqual(steps, ['/api/health', '/api/auth/request-otp'])
+} finally {
+  globalThis.setTimeout = nativeTimeout
+}
+console.log('PASS: cold-start readiness retry, bounded failure, one OTP request and no replay after rate limiting')
