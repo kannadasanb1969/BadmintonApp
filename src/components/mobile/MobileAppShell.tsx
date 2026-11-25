@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import smashPointLogo from '@/assets/mlogo.png'
 
-export type AppIconName = 'home' | 'trophy' | 'clipboard' | 'bracket' | 'bell' | 'user' | 'menu' | 'plus'
+export type AppIconName = 'home' | 'trophy' | 'clipboard' | 'bracket' | 'bell' | 'user' | 'menu' | 'plus' | 'calendar' | 'people' | 'courts' | 'more' | 'mic' | 'cash'
 
 export const AppIcon = ({ name, className = 'h-5 w-5' }: { name: AppIconName; className?: string }) => {
   const paths: Record<AppIconName, ReactNode> = {
@@ -13,6 +13,12 @@ export const AppIcon = ({ name, className = 'h-5 w-5' }: { name: AppIconName; cl
     bell: <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 22h4" />,
     user: <path d="M20 21a8 8 0 0 0-16 0m12-13a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" />,
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+    calendar: <path d="M6 3v4m12-4v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />,
+    people: <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-4m-6-8a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm4-4a4 4 0 0 1 0 8" />,
+    courts: <path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z" />,
+    more: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
+    mic: <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM5 10v1a7 7 0 0 0 14 0v-1M12 18v4m-3 0h6" />,
+    cash: <path d="M3 5h18v14H3zM3 9l4-4m14 4-4-4M3 15l4 4m14-4-4 4M14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />,
     plus: <path d="M12 5v14M5 12h14" />,
   }
   return <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">{paths[name]}</svg>
@@ -20,7 +26,7 @@ export const AppIcon = ({ name, className = 'h-5 w-5' }: { name: AppIconName; cl
 
 export type MobileNavItem = { to: string; label: string; mobileLabel?: string; icon: AppIconName; match?: (pathname: string) => boolean }
 
-export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount, onLogout }: { brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number; onLogout: () => void }) => {
+export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unreadCount, onLogout, textBrand = false }: { textBrand?: boolean; brand: string; section: string; homeTo: string; notificationsTo: string; unreadCount: number; onLogout: () => void }) => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const rootPath = homeTo.replace(/\/dashboard$/, '')
@@ -30,7 +36,7 @@ export const MobileAppHeader = ({ brand, section, homeTo, notificationsTo, unrea
     <div className="mobile-app-header-inner">
       {showBack && <button type="button" className="mobile-back-button" onClick={goBack} aria-label="Go back"><span aria-hidden="true">‹</span></button>}
       <Link to={homeTo} className="mobile-brand" aria-label={`${brand} home`}>
-        <img src={smashPointLogo} alt={brand} />
+        {textBrand ? <strong className="app-role-wordmark">Smash<b>Point</b></strong> : <img src={smashPointLogo} alt={brand} />}
         <span><small>{section}</small></span>
       </Link>
       <div className="mobile-header-actions">

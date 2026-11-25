@@ -61,3 +61,23 @@
   .owner-layout { display: block; padding: 0; }
   .owner-panel { border: none; }
 }
+
+.owner-back-link { width: fit-content; color: #116345; font-weight: 740; }
+.owner-page-heading, .owner-record-hero { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.owner-page-heading { justify-content: space-between; }
+.owner-page-heading h1, .owner-record-hero h1 { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 850; overflow-wrap: anywhere; }
+.owner-member-list { display: grid; gap: .45rem; }
+.owner-member-list a, .owner-record-hero { background: #fff; border: 1px solid #d7e7db; border-radius: 14px; padding: .8rem; }
+.owner-member-list a { display: flex; align-items: center; gap: .65rem; min-height: 56px; }
+.owner-member-list a:hover { background: #f0f9f3; }
+.owner-member-name { flex: 1; display: grid; min-width: 0; overflow-wrap: anywhere; }
+.owner-member-name small, .owner-record-hero a { color: #456859; }
+.owner-record-hero { background: #e2f4e9; }
+.owner-record-hero > div { flex: 1; min-width: 0; }
+.owner-avatar { display: grid; place-items: center; flex-shrink: 0; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: #daf1e2; color: #126140; font-weight: 850; }
+.owner-status-pill { display: inline-flex; border-radius: 999px; padding: .25rem .55rem; background: #fff1d9; color: #764c16; font-size: .72rem; white-space: nowrap; font-weight: 800; }
+.owner-status-pill:is([data-status="ACTIVE"], [data-status="CONFIRMED"]) { background: #d9f2e3; color: #075934; }
+.owner-status-pill:is([data-status="CANCELLED"], [data-status="INACTIVE"]) { background: #f9e8e6; color: #842f2b; }
+.owner-record-amounts { display: grid; gap: .5rem; }
+.owner-record-amounts > div { display: flex; justify-content: space-between; gap: .75rem; border-top: 1px solid #dce9e0; padding-top: .55rem; }
+.owner-record-amounts dd { font-weight: 800; }

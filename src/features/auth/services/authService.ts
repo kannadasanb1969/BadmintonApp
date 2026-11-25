@@ -1,6 +1,6 @@
 import { User, Role } from '@/types/auth.types'
 import { PlayerProfile } from '@/features/player/types/player.types'
-import apiClient, { isExplicitMockApiMode } from '@/api/apiClient'
+import apiClient, { apiBaseUrl, ApiError, isExplicitMockApiMode } from '@/api/apiClient'
 
 type ApiUser = User & { name?: string | null; isActive?: boolean }
 export type AuthLoginResponse = { user: User; playerProfile: PlayerProfile | null; accessToken: string; refreshToken: string | null }
@@ -19,8 +19,25 @@ const toAuthUser = (user: ApiUser | ApiAuthResponse): User => {
 
 const authPath = (path: string) => isExplicitMockApiMode ? path : `/api${path}`
 
-export const requestOtp = async (mobile: string): Promise<OtpRequestResponse> => {
+export const requestOtp = async (mobile: string, onStatus?: (message: string) => void): Promise<OtpRequestResponse> => {
   if (!/^[6-9]\d{9}$/.test(mobile)) throw new Error('Invalid mobile number')
+  const sameOriginApi = typeof window !== 'undefined' && apiBaseUrl === window.location?.origin
+  if (!isExplicitMockApiMode && sameOriginApi) {
+    onStatus?.('Connecting to server…')
+    // Only health checks are retried. The OTP request is sent once after readiness.
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        await apiClient.get('/api/health', { timeout: 8000 })
+        break
+      } catch (error) {
+        const transient = error instanceof ApiError && (error.status === undefined || [502, 503, 504].includes(error.status))
+        if (!transient) throw error
+        if (attempt === 5) throw new Error('The server is still starting. Please wait a minute and try again.')
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
+    }
+  }
+  onStatus?.('Sending OTP…')
   return (await apiClient.post<OtpRequestResponse>(authPath('/auth/request-otp'), { mobile: isExplicitMockApiMode ? mobile : `+91${mobile}` })).data
 }
 

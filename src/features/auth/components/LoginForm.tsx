@@ -5,33 +5,32 @@ import { requestOtp, verifyOtpLogin } from '@/features/auth/services/authService
 import { Role } from '@/types/auth.types'
 import { usePlayerProfileStore } from '@/features/player/store/playerProfileStore'
 import { getPlayerProfileForUser } from '@/features/player/services/playerProfileService'
-import playerImage from '@/assets/playerlog.png'
-import organizerImage from '@/assets/orglog.png'
-import ownerImage from '@/assets/ref1.png'
+import { AppIcon, type AppIconName } from '@/components/mobile/MobileAppShell'
 
 type Workspace = Role | 'OWNER'
 
-const roles: Array<{ value: Exclude<Workspace, 'ADMIN'>; label: string; detail: string; image: string }> = [
-  { value: 'PLAYER', label: 'Player', detail: 'Join and compete', image: playerImage },
-  { value: 'ORGANIZER', label: 'Organizer', detail: 'Run tournaments', image: organizerImage },
-  { value: 'OWNER', label: 'Owner', detail: 'Manage your academy', image: ownerImage },
+const roles: Array<{ value: Exclude<Workspace, 'ADMIN'>; label: string; detail: string; icon: AppIconName }> = [
+  { value: 'PLAYER', label: 'Player', detail: 'Join tournaments · Play matches', icon: 'user' },
+  { value: 'ORGANIZER', label: 'Organizer', detail: 'Create tournaments · Manage events', icon: 'people' },
+  { value: 'OWNER', label: 'Owner', detail: 'Manage your academy', icon: 'courts' },
 ]
 
-type Props = { adminMode: boolean; onBackToNormal: () => void }
+type Props = { adminMode: boolean; onToggleAdmin: () => void }
 
-const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
+const LoginForm = ({ adminMode, onToggleAdmin }: Props) => {
   const [mobile, setMobile] = useState('')
-  const [role, setRole] = useState<Workspace | null>(null)
+  const [role, setRole] = useState<Workspace>('PLAYER')
   const [otp, setOtp] = useState('')
   const [otpRequested, setOtpRequested] = useState(false)
   const [developmentHint, setDevelopmentHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [requestStatus, setRequestStatus] = useState('Sending OTP…')
   const { login, sessionMessage } = useAuthStore()
   const navigate = useNavigate()
 
   useEffect(() => {
-    setRole(adminMode ? 'ADMIN' : null)
+    setRole(adminMode ? 'ADMIN' : 'PLAYER')
     setOtp(''); setOtpRequested(false); setDevelopmentHint(null); setError(null)
   }, [adminMode])
 
@@ -40,19 +39,18 @@ const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
   const validate = () => {
     if (!mobile) { setError('Enter your mobile number to continue.'); return false }
     if (!validMobile()) { setError('Enter a valid 10-digit mobile number.'); return false }
-    if (!role) { setError('Choose how you want to enter the court.'); return false }
     return true
   }
   const request = async () => {
     setError(null); if (!validate()) return
     setLoading(true)
-    try { const response = await requestOtp(mobile); setOtpRequested(true); setOtp(''); setDevelopmentHint(import.meta.env.DEV && response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : null) }
+    try { const response = await requestOtp(mobile, setRequestStatus); setOtpRequested(true); setOtp(''); setDevelopmentHint(import.meta.env.DEV && response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : null) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to request OTP') }
     finally { setLoading(false) }
   }
   const verify = async (event: React.FormEvent) => {
     event.preventDefault(); setError(null)
-    if (!validate() || !role) return
+    if (!validate()) return
     if (!/^\d{5}$/.test(otp)) { setError('Enter the five-digit OTP.'); return }
     setLoading(true)
     try {
@@ -73,40 +71,47 @@ const LoginForm = ({ adminMode, onBackToNormal }: Props) => {
     finally { setLoading(false) }
   }
 
-  return <div className={`reference-login-form-wrap ${adminMode ? 'reference-admin-mode' : ''}`}><form onSubmit={verify} className="reference-login-form">
-    {adminMode && <button type="button" className="reference-admin-back" onClick={onBackToNormal} disabled={loading}>← Back to workspace login</button>}
-    <div className="reference-field-group"><label htmlFor="mobile">Mobile Number</label><div className="reference-mobile-field"><strong>+91</strong><span className="reference-chevron">⌄</span><input id="mobile" type="tel" inputMode="numeric" autoComplete="tel" disabled={loading} value={mobile} onChange={(event) => { setMobile(event.target.value.replace(/\D/g, '')); resetOtp() }} maxLength={10} placeholder="Enter your mobile number" /></div></div>
-    {!adminMode && (
-      <fieldset className="reference-role-group">
-        <legend>I'm here as a</legend>
-        <div className="reference-role-list">
-          {roles.map((item) => (
-            <label key={item.value} className="relative cursor-pointer">
-              <input
-                type="radio"
-                name="workspace"
-                className="peer sr-only"
-                disabled={loading}
-                value={item.value}
-                checked={role === item.value}
-                onChange={() => { setRole(item.value); resetOtp(); setError(null) }}
-              />
-              <span className="reference-role-card">
-                <img src={item.image} alt="" />
-                <span className="reference-role-copy">
-                  <i className="reference-radio" aria-hidden="true" />
-                  <span><strong>{item.label}</strong><small>{item.detail}</small></span>
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-    )}
-    {otpRequested && <div className="reference-otp-panel"><label htmlFor="otp">{adminMode ? 'Admin Verification' : 'Enter five-digit OTP'}</label><input id="otp" type="text" disabled={loading} inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />{developmentHint && <p>{developmentHint}</p>}</div>}
-    {!otpRequested ? <button type="button" onClick={request} disabled={loading} className="reference-request-button">{loading ? (adminMode ? 'Requesting Admin OTP...' : 'Requesting...') : (adminMode ? 'Request Admin OTP  →' : 'Request OTP  →')}</button> : <div className="space-y-3"><button type="submit" disabled={loading} className="reference-request-button">{loading ? 'Verifying...' : 'Verify OTP  →'}</button><button type="button" onClick={request} disabled={loading} className="reference-resend">Resend OTP</button></div>}
-    {(error || sessionMessage) && <p role="alert" className="reference-login-error">{error || sessionMessage}</p>}
-  </form></div>
+  return <form onSubmit={otpRequested ? verify : event => { event.preventDefault(); void request() }} className="app-login-form">
+    {!adminMode && <fieldset>
+      <legend className="sr-only">Workspace</legend>
+      <div className="app-login-roles">
+        {roles.map(item => <label key={item.value} data-role={item.value} className="app-login-role">
+          <input type="radio" name="workspace" className="sr-only" disabled={loading} value={item.value} checked={role === item.value}
+            onChange={() => { setRole(item.value); resetOtp(); setError(null) }} />
+          <span className="app-login-role-card">
+            <span className="app-login-icon"><AppIcon name={item.icon} /></span>
+            <strong>{item.label}</strong><small>{item.detail}</small>
+          </span>
+        </label>)}
+      </div>
+    </fieldset>}
+    {role === 'OWNER' && !adminMode && <p className="app-login-notice">After verification, you’ll go to the Owner workspace to manage your badminton academy.</p>}
+    <div>
+      <label htmlFor="mobile">Enter your WhatsApp number</label>
+      <div className="app-login-phone">
+        <strong>+91</strong>
+        <input id="mobile" type="tel" inputMode="numeric" autoComplete="tel-national" disabled={loading} value={mobile}
+          onChange={event => {
+            setMobile(event.target.value.replace(/^\s*(?:\+91|0091)(?=[\s-]*\d)/, '').replace(/\D/g, '').slice(0, 10))
+            resetOtp()
+          }} placeholder="10-digit WhatsApp number" />
+      </div>
+    </div>
+    {otpRequested && <div className="app-login-otp">
+      <label htmlFor="otp">Enter the five-digit OTP</label>
+      <input id="otp" type="text" disabled={loading} inputMode="numeric" autoComplete="one-time-code" value={otp}
+        onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} placeholder="•••••" />
+      {developmentHint && <p>{developmentHint}</p>}
+    </div>}
+    <button type="submit" disabled={loading} aria-busy={loading} className="app-login-submit">
+      {otpRequested ? (loading ? 'Verifying…' : 'Verify OTP') : (loading ? requestStatus : 'Send OTP via WhatsApp')}
+    </button>
+    {otpRequested && <button type="button" onClick={() => void request()} disabled={loading} className="app-login-link">Resend OTP</button>}
+    {(error || sessionMessage) && <p role="alert" className="app-login-error">{error || sessionMessage}</p>}
+    <button type="button" onClick={onToggleAdmin} disabled={loading} className="app-login-link">
+      {adminMode ? 'Back to regular sign in' : 'Admin sign in'}
+    </button>
+  </form>
 }
 
 export default LoginForm
